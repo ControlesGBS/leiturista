@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Meu painel — GBS</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f4f4f2;min-height:100vh}
+
+.topo{background:#025e37;color:#fff;padding:14px 16px;display:flex;align-items:center;justify-content:space-between}
+.topo-user{display:flex;align-items:center;gap:10px}
+.avatar{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-weight:500;font-size:12px}
+.topo-nome{font-size:13px;font-weight:500}
+.topo-matricula{font-size:11px;opacity:.8}
+.btn-sair{background:none;border:1px solid rgba(255,255,255,.5);color:#fff;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer}
+
+.wrap{max-width:420px;margin:0 auto;padding:16px}
+
+.card{background:#fff;border-radius:14px;border:0.5px solid #e0e0e0;padding:18px 18px 8px;margin-bottom:14px}
+
+.nivel-box{border-radius:10px;padding:12px 14px;margin-bottom:18px}
+.nivel-box p{margin:0 0 4px;font-size:13px}
+.nivel-box p:last-child{margin-bottom:0}
+
+.mes-titulo{font-size:13px;font-weight:500;margin:0 0 4px;color:#1a2a1a}
+.mes-sub{font-size:12px;color:#5a7a5a;margin:0 0 20px;line-height:1.5}
+
+.bar-linha{margin-bottom:22px}
+.bar-linha p{margin:0 0 10px}
+.bar-valor{font-size:17px;font-weight:500;color:#1a2a1a}
+.bar-label{font-size:12px;color:#5a7a5a}
+
+.bar-track{position:relative;height:4px;background:#e8e8e6;border-radius:2px;margin:0 6px 18px}
+.bar-fill{position:absolute;left:0;top:0;height:4px;background:#3b6d11;border-radius:2px}
+.bar-dot{position:absolute;top:50%;width:12px;height:12px;border-radius:50%;border:2px solid #fff;transform:translate(-50%,-50%)}
+.bar-num{position:absolute;top:12px;font-size:11px;color:#5a7a5a;transform:translateX(-50%)}
+
+.status-msg{text-align:center;color:#5a7a5a;font-size:13px;padding:40px 0}
+</style>
+</head>
+<body>
+
+<div class="topo">
+  <div class="topo-user">
+    <div class="avatar" id="avatar">--</div>
+    <div>
+      <div class="topo-nome" id="topo-nome">—</div>
+      <div class="topo-matricula" id="topo-matricula">—</div>
+    </div>
+  </div>
+  <button class="btn-sair" onclick="sair()">Sair</button>
+</div>
+
+<div class="wrap">
+  <div id="conteudo" class="status-msg">Carregando seus indicadores...</div>
+</div>
+
+<script>
+const SUPABASE_URL='https://ndwivbhqglpnfyqwjbzu.supabase.co';
+const SUPABASE_KEY='sb_publishable_IhuNziyT5VYrMKRixcPGjA_LAn5ku-7';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+const CORES_NIVEL={bronze:'#ad6f3b',prata:'#a8a8b0',ouro:'#ef9f27',platina:'#8fb4c9'};
+const NOME_NIVEL={bronze:'Bronze',prata:'Prata',ouro:'Ouro',platina:'Platina'};
+const POSICOES=[0,33.3,66.7,100];
+
+const METRICAS=[
+  {chave:'leitura',     titulo:'Leituras',          formatoPct:false, cortes:{bronze:0,prata:7500,ouro:9000,platina:10500}},
+  {chave:'impedimento', titulo:'Sem Impedimentos',  formatoPct:true,  cortes:{bronze:0,prata:99.50,ouro:99.60,platina:99.70}},
+  {chave:'erro',        titulo:'Sem Erros',         formatoPct:true,  cortes:{bronze:0,prata:99.90,ouro:99.98,platina:100}},
+  {chave:'reclamacao',  titulo:'Sem reclamações',   formatoPct:true,  cortes:{bronze:0,prata:99.90,ouro:99.98,platina:100}},
+];
+
+function nivelDoValor(valor,cortes){
+  if(valor>=cortes.platina) return 'platina';
+  if(valor>=cortes.ouro) return 'ouro';
+  if(valor>=cortes.prata) return 'prata';
+  return 'bronze';
+}
+
+function posicaoNaBarra(valor,cortes){
+  const niveis=['bronze','prata','ouro','platina'];
+  const c=niveis.map(n=>cortes[n]);
+  for(let i=0;i<3;i++){
+    if(valor<c[i+1]){
+      const frac=Math.max(0,Math.min(1,(valor-c[i])/(c[i+1]-c[i])));
+      return POSICOES[i]+frac*(POSICOES[i+1]-POSICOES[i]);
+    }
+  }
+  return 100;
+}
+
+function nomeMesAtual(){
+  const meses=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  const hoje=new Date();
+  const ultimoDia=new Date(hoje.getFullYear(),hoje.getMonth()+1,0).getDate();
+  return `01 a ${ultimoDia} de ${meses[hoje.getMonth()]}`;
+}
+
+async function sair(){await sb.auth.signOut();location.href='login.html';}
+
+(async function init(){
+  const {data:{user}}=await sb.auth.getUser();
+  if(!user){location.href='login.html';return;}
+
+  const matricula=user.user_metadata?.matricula;
+  if(!matricula){
+    document.getElementById('conteudo').textContent='Login sem matrícula vinculada. Fale com seu gestor.';
+    return;
+  }
+
+  const hoje=new Date();
+  const mesRef=`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-01`;
+
+  const {data:matInfo}=await sb.from('matriculas').select('nome_leiturista').eq('matricula',matricula).maybeSingle();
+  const nome=matInfo?.nome_leiturista||matricula;
+  document.getElementById('topo-nome').textContent=nome;
+  document.getElementById('topo-matricula').textContent=`Matrícula ${matricula}`;
+  document.getElementById('avatar').textContent=nome.split(' ').slice(0,2).map(p=>p[0]).join('').toUpperCase();
+
+  const [totaisRz,impCount,errCount,reclCount,histNivel]=await Promise.all([
+    sb.from('totais_rz').select('total_leituras').eq('matricula',matricula).eq('mes_ref',mesRef),
+    sb.from('impedimentos').select('*',{count:'exact',head:true}).eq('matricula',matricula).eq('mes_ref',mesRef).ilike('responsabilidade','GBS'),
+    sb.from('erros').select('*',{count:'exact',head:true}).eq('matricula',matricula).eq('mes_erro',mesRef),
+    sb.from('reclamacoes').select('*',{count:'exact',head:true}).eq('matricula',matricula).eq('mes_ref',mesRef),
+    sb.from('niveis_historico').select('nivel,valor,mes_ref').eq('matricula',matricula).order('mes_ref',{ascending:false}).limit(1).maybeSingle()
+  ]);
+
+  const leituras=(totaisRz.data||[]).reduce((s,r)=>s+(r.total_leituras||0),0);
+  const qtdImp=impCount.count||0;
+  const qtdErr=errCount.count||0;
+  const qtdRecl=reclCount.count||0;
+
+  const valores={};
+  if(leituras>0){
+    valores.leitura=leituras;
+    valores.impedimento=100-(qtdImp/leituras*100);
+    valores.erro=100-((qtdErr*10000/leituras)/100);
+    valores.reclamacao=100-((qtdRecl*10000/leituras)/100);
+  } else {
+    valores.leitura=0; valores.impedimento=0; valores.erro=0; valores.reclamacao=0;
+  }
+
+  const niveisPorMetrica=METRICAS.map(m=>nivelDoValor(valores[m.chave],m.cortes));
+  const ordem=['bronze','prata','ouro','platina'];
+  const nivelGeralAoVivo=ordem[Math.min(...niveisPorMetrica.map(n=>ordem.indexOf(n)))];
+
+  const nivelOficial=histNivel.data?.nivel||'bronze';
+  const beneficioOficial=histNivel.data?.valor??0;
+
+  const cor=CORES_NIVEL[nivelOficial];
+
+  let html=`
+    <div class="card">
+      <div class="nivel-box" style="background:${cor}22">
+        <p style="color:${cor}">Você está no nível <span style="font-weight:500">${NOME_NIVEL[nivelOficial]}</span></p>
+        <p style="color:${cor}">Seu benefício <span style="font-weight:500">R$ ${beneficioOficial.toFixed(2).replace('.',',')}</span></p>
+      </div>
+      <p class="mes-titulo">Mês em andamento — ${nomeMesAtual()}</p>
+      <p class="mes-sub">Faça mais leituras, zere impedimentos, erros e reclamações para manter seus indicadores e subir de nível.</p>
+  `;
+
+  METRICAS.forEach(m=>{
+    const valor=valores[m.chave];
+    const pos=posicaoNaBarra(valor,m.cortes);
+    const fmt=v=>m.formatoPct?v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%':Math.round(v).toLocaleString('pt-BR');
+    html+=`
+      <div class="bar-linha">
+        <p><span class="bar-valor">${fmt(valor)}</span> <span class="bar-label">${m.titulo}</span></p>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${pos}%"></div>
+          <div class="bar-dot" style="left:0%;background:${CORES_NIVEL.bronze}"></div>
+          <div class="bar-dot" style="left:33.3%;background:${CORES_NIVEL.prata}"></div>
+          <div class="bar-dot" style="left:66.7%;background:${CORES_NIVEL.ouro}"></div>
+          <div class="bar-dot" style="left:100%;background:${CORES_NIVEL.platina}"></div>
+          <div class="bar-num" style="left:0%">${fmt(m.cortes.bronze)}</div>
+          <div class="bar-num" style="left:33.3%">${fmt(m.cortes.prata)}</div>
+          <div class="bar-num" style="left:66.7%">${fmt(m.cortes.ouro)}</div>
+          <div class="bar-num" style="left:100%">${fmt(m.cortes.platina)}</div>
+        </div>
+      </div>`;
+  });
+
+  html+='</div>';
+  document.getElementById('conteudo').innerHTML=html;
+})();
+</script>
+
+</body>
+</html>

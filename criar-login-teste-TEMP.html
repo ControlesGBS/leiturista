@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>[TEMP] Criar login de leiturista</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+body{font-family:system-ui,sans-serif;background:#f4f4f2;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
+.card{background:#fff;border-radius:14px;padding:28px;width:340px;border:0.5px solid #ddd}
+h2{font-size:16px;margin:0 0 6px}
+p{font-size:12px;color:#a32d2d;margin:0 0 20px;line-height:1.5}
+label{display:block;font-size:11px;color:#4a7a4a;text-transform:uppercase;margin-bottom:4px}
+input{width:100%;box-sizing:border-box;border:0.5px solid #a0c8a0;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:14px}
+button{width:100%;background:#2d7a2d;color:#fff;border:none;padding:12px;border-radius:8px;font-size:14px;cursor:pointer}
+.msg{font-size:13px;margin-top:14px;text-align:center}
+</style>
+</head>
+<body>
+<div class="card">
+  <h2>Criar login de leiturista</h2>
+  <p>⚠ Ferramenta temporária só para testes. Vai ser substituída por uma tela própria do gestor.</p>
+  <label>Matrícula</label>
+  <input id="m" placeholder="ex: 0962">
+  <label>PIN inicial (6 dígitos)</label>
+  <input id="p" maxlength="6" placeholder="ex: os 6 primeiros do CPF">
+  <button onclick="criar()">Criar login</button>
+  <div class="msg" id="msg"></div>
+</div>
+<script>
+const sb=supabase.createClient('https://ndwivbhqglpnfyqwjbzu.supabase.co','sb_publishable_IhuNziyT5VYrMKRixcPGjA_LAn5ku-7');
+async function criar(){
+  const matricula=document.getElementById('m').value.trim();
+  const pin=document.getElementById('p').value.trim();
+  const msg=document.getElementById('msg');
+  if(!matricula||pin.length<6){msg.textContent='Preencha matrícula e PIN de 6 dígitos.';msg.style.color='#a32d2d';return;}
+  const email=`leit_${matricula.toLowerCase().replace(/[^a-z0-9]/g,'')}@leiturista.gbsservicos.interno`;
+  const {error}=await sb.auth.signUp({email,password:pin,options:{data:{matricula,perfil:'leiturista'}}});
+  if(error){msg.textContent='Erro: '+error.message;msg.style.color='#a32d2d';return;}
+  msg.textContent='Login criado! Pode testar em login.html.';msg.style.color='#1a5a1a';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Acesso do Leiturista — GBS</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:system-ui,sans-serif;background:#025e37;display:flex;align-items:center;justify-content:center;padding:20px}
+
+.card{background:#fff;border-radius:16px;padding:32px 24px;width:100%;max-width:340px}
+.logo{display:flex;flex-direction:column;align-items:center;margin-bottom:24px}
+.logo img{height:48px;margin-bottom:10px}
+.logo span{font-size:13px;color:#4a7a4a;font-weight:500}
+
+.titulo{font-size:18px;font-weight:500;color:#1a2a1a;margin-bottom:4px;text-align:center}
+.sub{font-size:13px;color:#4a7a4a;margin-bottom:24px;text-align:center}
+
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:11px;color:#4a7a4a;margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px}
+.form-group input{width:100%;border:0.5px solid #a0c8a0;border-radius:8px;padding:12px 14px;font-size:16px;background:#f8fbf8;color:#1a2a1a;outline:none;transition:border .15s}
+.form-group input:focus{border-color:#2d7a2d}
+
+.btn-login{width:100%;background:#2d7a2d;color:#fff;border:none;padding:13px;border-radius:8px;font-size:15px;font-weight:500;cursor:pointer;margin-top:6px;transition:background .15s}
+.btn-login:hover{background:#1a5a1a}
+.btn-login:disabled{background:#90c090;cursor:not-allowed}
+
+.erro{font-size:12px;color:#a32d2d;margin-top:10px;min-height:14px;text-align:center}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">
+    <img src="logo_gbs.png" alt="GBS" onerror="this.style.display='none'">
+    <span>GBS Serviços</span>
+  </div>
+  <p class="titulo">Acesso do Leiturista</p>
+  <p class="sub">Entre com sua matrícula e seu PIN.</p>
+
+  <div class="form-group">
+    <label>Matrícula</label>
+    <input type="text" id="inp-matricula" placeholder="ex: 0962" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('inp-pin').focus()">
+  </div>
+  <div class="form-group">
+    <label>PIN</label>
+    <input type="password" id="inp-pin" inputmode="numeric" maxlength="6" placeholder="6 dígitos" onkeydown="if(event.key==='Enter')fazerLogin()">
+  </div>
+
+  <button class="btn-login" id="btn-login" onclick="fazerLogin()">Entrar</button>
+  <div class="erro" id="erro"></div>
+</div>
+
+<script>
+const SUPABASE_URL='https://ndwivbhqglpnfyqwjbzu.supabase.co';
+const SUPABASE_KEY='sb_publishable_IhuNziyT5VYrMKRixcPGjA_LAn5ku-7';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+function emailDaMatricula(matricula){
+  const limpo=matricula.toLowerCase().replace(/[^a-z0-9]/g,'');
+  return `leit_${limpo}@leiturista.gbsservicos.interno`;
+}
+
+async function fazerLogin(){
+  const matricula=document.getElementById('inp-matricula').value.trim();
+  const pin=document.getElementById('inp-pin').value.trim();
+  const erro=document.getElementById('erro');
+  const btn=document.getElementById('btn-login');
+  if(!matricula||!pin){erro.textContent='Preencha matrícula e PIN.';return;}
+  if(pin.length<6){erro.textContent='O PIN deve ter 6 dígitos.';return;}
+
+  btn.disabled=true;btn.textContent='Entrando...';erro.textContent='';
+  const email=emailDaMatricula(matricula);
+  const {error}=await sb.auth.signInWithPassword({email,password:pin});
+  if(error){
+    erro.textContent='Matrícula ou PIN incorretos.';
+    btn.disabled=false;btn.textContent='Entrar';
+    return;
+  }
+  window.location.href='painel.html';
+}
+</script>
+
+</body>
+</html>
