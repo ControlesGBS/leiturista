@@ -128,7 +128,12 @@ async function sair(){await sb.auth.signOut();location.href='login.html';}
     sb.from('niveis_historico').select('nivel,valor,mes_ref').eq('matricula',matricula).order('mes_ref',{ascending:false}).limit(1).maybeSingle()
   ]);
 
-  const leituras=(totaisRz.data||[]).reduce((s,r)=>s+(r.total_leituras||0),0);
+  let leituras=(totaisRz.data||[]).reduce((s,r)=>s+(r.total_leituras||0),0);
+  // Fallback: se totais_rz não tiver dado pra esse mês, soma direto da jornada (mesma lógica do módulo Jornada)
+  if(!totaisRz.data||!totaisRz.data.length){
+    const {data:jornadaRows}=await sb.from('jornada').select('qtd_leituras').eq('matricula',matricula).eq('mes_ref',mesRef);
+    leituras=(jornadaRows||[]).reduce((s,r)=>s+(r.qtd_leituras||0),0);
+  }
   const qtdImp=impCount.count||0;
   const qtdErr=errCount.count||0;
   const qtdRecl=reclCount.count||0;
