@@ -16,26 +16,26 @@ body{font-family:system-ui,sans-serif;background:#f4f4f2;min-height:100vh}
 .topo-matricula{font-size:11px;opacity:.8}
 .btn-sair{background:none;border:1px solid rgba(255,255,255,.5);color:#fff;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer}
 
-.wrap{max-width:420px;margin:0 auto;padding:16px}
+.wrap{max-width:900px;width:100%;margin:0 auto;padding:16px;box-sizing:border-box}
 
-.card{background:#fff;border-radius:14px;border:0.5px solid #e0e0e0;padding:18px 18px 8px;margin-bottom:14px}
+.card{background:#fff;border-radius:14px;border:0.5px solid #e0e0e0;padding:24px 24px 14px;margin-bottom:14px}
 
-.nivel-box{border-radius:10px;padding:12px 14px;margin-bottom:18px}
-.nivel-box p{margin:0 0 4px;font-size:13px}
+.nivel-box{border-radius:10px;padding:14px 16px;margin-bottom:22px}
+.nivel-box p{margin:0 0 5px;font-size:17px;text-align:left}
 .nivel-box p:last-child{margin-bottom:0}
 
-.mes-titulo{font-size:13px;font-weight:500;margin:0 0 4px;color:#1a2a1a}
-.mes-sub{font-size:12px;color:#5a7a5a;margin:0 0 20px;line-height:1.5}
+.mes-titulo{font-size:17px;font-weight:500;margin:0 0 6px;color:#1a2a1a;text-align:left}
+.mes-sub{font-size:16px;color:#5a7a5a;margin:0 0 28px;line-height:1.5;text-align:left}
 
-.bar-linha{margin-bottom:22px}
-.bar-linha p{margin:0 0 10px}
-.bar-valor{font-size:17px;font-weight:500;color:#1a2a1a}
-.bar-label{font-size:12px;color:#5a7a5a}
+.bar-linha{margin-bottom:40px}
+.bar-linha p{margin:0 0 14px;text-align:left}
+.bar-valor{font-size:19px;font-weight:500;color:#1a2a1a}
+.bar-label{font-size:14px;color:#5a7a5a}
 
-.bar-track{position:relative;height:4px;background:#e8e8e6;border-radius:2px;margin:0 6px 18px}
-.bar-fill{position:absolute;left:0;top:0;height:4px;background:#3b6d11;border-radius:2px}
-.bar-dot{position:absolute;top:50%;width:12px;height:12px;border-radius:50%;border:2px solid #fff;transform:translate(-50%,-50%)}
-.bar-num{position:absolute;top:12px;font-size:11px;color:#5a7a5a;transform:translateX(-50%)}
+.bar-track{position:relative;height:8px;background:#e8e8e6;border-radius:4px;margin:0 9px 26px}
+.bar-fill{position:absolute;left:0;top:0;height:8px;background:#3b6d11;border-radius:4px}
+.bar-dot{position:absolute;top:50%;width:18px;height:18px;border-radius:50%;border:3px solid #fff;transform:translate(-50%,-50%);box-shadow:0 0 0 1px rgba(0,0,0,.08)}
+.bar-num{position:absolute;top:16px;font-size:14px;color:#5a7a5a;transform:translateX(-50%)}
 
 .status-msg{text-align:center;color:#5a7a5a;font-size:13px;padding:40px 0}
 </style>
@@ -164,16 +164,19 @@ async function sair(){await sb.auth.signOut();location.href='login.html';}
         <p style="color:${cor}">Seu benefício <span style="font-weight:500">R$ ${beneficioOficial.toFixed(2).replace('.',',')}</span></p>
       </div>
       <p class="mes-titulo">Mês em andamento — ${nomeMesAtual()}</p>
-      <p class="mes-sub">Faça mais leituras, zere impedimentos, erros e reclamações para manter seus indicadores e subir de nível.</p>
+      <p class="mes-sub">Faça mais leituras, melhore seus indicadores para subir de nível.</p>
   `;
+
+  const qtdBruta={impedimento:qtdImp,erro:qtdErr,reclamacao:qtdRecl};
 
   METRICAS.forEach(m=>{
     const valor=valores[m.chave];
     const pos=posicaoNaBarra(valor,m.cortes);
     const fmt=v=>m.formatoPct?v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%':Math.round(v).toLocaleString('pt-BR');
+    const prefixo=m.formatoPct?`(${qtdBruta[m.chave]}) `:'';
     html+=`
       <div class="bar-linha">
-        <p><span class="bar-valor">${fmt(valor)}</span> <span class="bar-label">${m.titulo}</span></p>
+        <p><span class="bar-valor">${prefixo}${fmt(valor)}</span> <span class="bar-label">${m.titulo}</span></p>
         <div class="bar-track">
           <div class="bar-fill" style="width:${pos}%"></div>
           <div class="bar-dot" style="left:0%;background:${CORES_NIVEL.bronze}"></div>
