@@ -133,18 +133,18 @@ async function sair(){await sb.auth.signOut();location.href='login.html';}
   const hoje=new Date();
   const mesRef=`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-01`;
 
-  const {data:matInfo}=await sb.from('matriculas').select('nome_leiturista').eq('matricula',matricula).maybeSingle();
+  const {data:matInfo}=await sb.from('matriculas').select('nome_leiturista').ilike('matricula',matricula).maybeSingle();
   const nome=matInfo?.nome_leiturista||matricula;
   document.getElementById('topo-nome').textContent=nome;
   document.getElementById('topo-matricula').textContent=`Matrícula ${matricula}`;
   document.getElementById('avatar').textContent=nome.split(' ').slice(0,2).map(p=>p[0]).join('').toUpperCase();
 
   const [totaisRz,impCount,errCount,reclCount,histNivel,niveisCfg]=await Promise.all([
-    sb.from('totais_rz').select('total_leituras').eq('matricula',matricula).eq('mes_ref',mesRef),
-    sb.from('impedimentos').select('*',{count:'exact',head:true}).eq('matricula',matricula).eq('mes_ref',mesRef).ilike('responsabilidade','GBS'),
-    sb.from('erros').select('*',{count:'exact',head:true}).eq('matricula',matricula).eq('mes_erro',mesRef),
-    sb.from('reclamacoes').select('*',{count:'exact',head:true}).eq('matricula',matricula).eq('mes_ref',mesRef),
-    sb.from('niveis_historico').select('nivel,valor,mes_ref').eq('matricula',matricula).order('mes_ref',{ascending:false}).limit(1).maybeSingle(),
+    sb.from('totais_rz').select('total_leituras').ilike('matricula',matricula).eq('mes_ref',mesRef),
+    sb.from('impedimentos').select('*',{count:'exact',head:true}).ilike('matricula',matricula).eq('mes_ref',mesRef).ilike('responsabilidade','GBS'),
+    sb.from('erros').select('*',{count:'exact',head:true}).ilike('matricula',matricula).eq('mes_erro',mesRef),
+    sb.from('reclamacoes').select('*',{count:'exact',head:true}).ilike('matricula',matricula).eq('mes_ref',mesRef),
+    sb.from('niveis_historico').select('nivel,valor,mes_ref').ilike('matricula',matricula).order('mes_ref',{ascending:false}).limit(1).maybeSingle(),
     sb.from('leiturista_niveis_config').select('*').eq('id',1).maybeSingle()
   ]);
   const METRICAS=montarMetricas(niveisCfg.data);
@@ -152,7 +152,7 @@ async function sair(){await sb.auth.signOut();location.href='login.html';}
   let leituras=(totaisRz.data||[]).reduce((s,r)=>s+(r.total_leituras||0),0);
   // Fallback: se totais_rz não tiver dado pra esse mês, soma direto da jornada (mesma lógica do módulo Jornada)
   if(!totaisRz.data||!totaisRz.data.length){
-    const {data:jornadaRows}=await sb.from('jornada').select('qtd_leituras').eq('matricula',matricula).eq('mes_ref',mesRef);
+    const {data:jornadaRows}=await sb.from('jornada').select('qtd_leituras').ilike('matricula',matricula).eq('mes_ref',mesRef);
     leituras=(jornadaRows||[]).reduce((s,r)=>s+(r.qtd_leituras||0),0);
   }
   const qtdImp=impCount.count||0;

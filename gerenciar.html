@@ -165,11 +165,14 @@ async function criarAcesso(){
 
   btn.disabled=true;msg.className='msg-criar';msg.textContent='Verificando matrícula...';
 
-  const {data:matReg}=await sb.from('matriculas').select('matricula,nome_leiturista').eq('matricula',matricula).maybeSingle();
+  // ilike em vez de eq — a busca não pode ser sensível a maiúscula/minúscula, senão
+  // o gestor precisa acertar exatamente a grafia salva em "matriculas" pra achar o registro.
+  const {data:matReg}=await sb.from('matriculas').select('matricula,nome_leiturista').ilike('matricula',matricula).maybeSingle();
   if(!matReg){
     msg.className='msg-criar erro';msg.textContent=`Matrícula "${matricula}" não encontrada no cadastro de matrículas.`;
     btn.disabled=false;return;
   }
+  const matriculaCanonica=matReg.matricula; // grafia oficial, como está em "matriculas"
 
   // signUp() troca a sessão ativa do client pra a do usuário recém-criado quando a
   // confirmação de e-mail está desativada (é o caso aqui) — guarda a sessão do gestor
@@ -177,8 +180,8 @@ async function criarAcesso(){
   const {data:{session:sessaoGestor}}=await sb.auth.getSession();
 
   msg.textContent='Criando acesso...';
-  const email=emailDoLeiturista(matricula);
-  const {error}=await sb.auth.signUp({email,password:pin,options:{data:{matricula,perfil:'leiturista'}}});
+  const email=emailDoLeiturista(matriculaCanonica);
+  const {error}=await sb.auth.signUp({email,password:pin,options:{data:{matricula:matriculaCanonica,perfil:'leiturista'}}});
 
   if(sessaoGestor){
     await sb.auth.setSession({access_token:sessaoGestor.access_token,refresh_token:sessaoGestor.refresh_token});
@@ -193,13 +196,13 @@ async function criarAcesso(){
   }
 
   await sb.from('leiturista_logins').upsert({
-    matricula, nome_leiturista:matReg.nome_leiturista||null,
+    matricula:matriculaCanonica, nome_leiturista:matReg.nome_leiturista||null,
     criado_em:new Date().toISOString(), criado_por:EMAIL_PERMITIDO,
   });
 
   btn.disabled=false;
   msg.className='msg-criar ok';
-  msg.textContent=`✓ Acesso criado para ${matReg.nome_leiturista||matricula} (matrícula ${matricula}). Informe o PIN "${pin}" pra ele entrar no painel próprio.`;
+  msg.textContent=`✓ Acesso criado para ${matReg.nome_leiturista||matriculaCanonica} (matrícula ${matriculaCanonica}). Informe o PIN "${pin}" pra ele entrar no painel próprio.`;
   document.getElementById('l-matricula').value='';
   document.getElementById('l-pin').value='';
   carregarLista();
