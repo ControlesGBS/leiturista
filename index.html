@@ -6,39 +6,63 @@
 <title>Meu painel — GBS</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
+:root{
+  --bg:#f4f4f2; --card-bg:#fff; --card-border:#e0e0e0;
+  --texto:#1a2a1a; --texto-suave:#5a7a5a; --texto-fraco:#8a9a8a;
+  --track-bg:#e8e8e6;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#14181a; --card-bg:#1d2422; --card-border:#2c3532;
+    --texto:#e8ece8; --texto-suave:#9ab0a0; --texto-fraco:#6f8478;
+    --track-bg:#2a332f;
+  }
+}
+:root[data-tema="escuro"]{
+  --bg:#14181a; --card-bg:#1d2422; --card-border:#2c3532;
+  --texto:#e8ece8; --texto-suave:#9ab0a0; --texto-fraco:#6f8478;
+  --track-bg:#2a332f;
+}
+:root[data-tema="claro"]{
+  --bg:#f4f4f2; --card-bg:#fff; --card-border:#e0e0e0;
+  --texto:#1a2a1a; --texto-suave:#5a7a5a; --texto-fraco:#8a9a8a;
+  --track-bg:#e8e8e6;
+}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,sans-serif;background:#f4f4f2;min-height:100vh}
+body{font-family:system-ui,sans-serif;background:var(--bg);min-height:100vh}
 
-.topo{background:#025e37;color:#fff;padding:14px 16px;display:flex;align-items:center;justify-content:space-between}
+.topo{background:#025e37;color:#fff;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .topo-user{display:flex;align-items:center;gap:10px}
 .avatar{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-weight:500;font-size:12px}
 .topo-nome{font-size:13px;font-weight:500}
 .topo-matricula{font-size:11px;opacity:.8}
+.topo-acoes{display:flex;align-items:center;gap:8px}
+.btn-tema{background:none;border:1px solid rgba(255,255,255,.5);color:#fff;width:30px;height:30px;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
 .btn-sair{background:none;border:1px solid rgba(255,255,255,.5);color:#fff;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer}
 
 .wrap{max-width:900px;width:100%;margin:0 auto;padding:0 16px 16px;box-sizing:border-box}
 
-.card{background:#fff;border-radius:14px;border:0.5px solid #e0e0e0;padding:24px 24px 14px;margin-bottom:14px}
+.card{background:var(--card-bg);border-radius:14px;border:0.5px solid var(--card-border);padding:24px 24px 14px;margin-bottom:14px}
 
 .nivel-box{border-radius:10px;padding:14px 16px;margin-bottom:22px}
 .nivel-box p{margin:0 0 5px;font-size:17px;text-align:center}
 .nivel-box p:last-child{margin-bottom:0}
 
-.mes-titulo{font-size:17px;font-weight:500;margin:0 0 6px;color:#1a2a1a;text-align:left}
-.mes-sub{font-size:16px;color:#5a7a5a;margin:0 0 28px;line-height:1.5;text-align:left}
+.mes-titulo{font-size:17px;font-weight:500;margin:0 0 6px;color:var(--texto);text-align:left}
+.mes-sub{font-size:16px;color:var(--texto-suave);margin:0 0 28px;line-height:1.5;text-align:left}
 
 .bar-linha{margin-bottom:60px}
 .bar-linha p{margin:0 0 14px;text-align:left}
-.bar-valor{font-size:15px;font-weight:500;color:#1a2a1a}
-.bar-label{font-size:14px;color:#5a7a5a}
+.bar-valor{font-size:15px;font-weight:500;color:var(--texto)}
+.bar-label{font-size:14px;color:var(--texto-suave)}
 
-.bar-track{position:relative;height:8px;background:#e8e8e6;border-radius:4px;margin:0 9px 26px}
-.bar-fill{position:absolute;left:0;top:0;height:8px;background:#3b6d11;border-radius:4px}
-.bar-dot{position:absolute;top:50%;width:18px;height:18px;border-radius:50%;border:3px solid #fff;transform:translate(-50%,-50%);box-shadow:0 0 0 1px rgba(0,0,0,.08)}
-.bar-num{position:absolute;top:16px;font-size:14px;color:#5a7a5a;transform:translateX(-50%)}
-.bar-qtd{font-size:12px;color:#8a9a8a}
+.bar-track{position:relative;height:8px;background:var(--track-bg);border-radius:4px;margin:0 9px 26px}
+.bar-fill{position:absolute;left:0;top:0;height:8px;border-radius:4px;transition:background .2s}
+.bar-medalha{position:absolute;top:50%;transform:translate(-50%,-50%)}
+.bar-num{position:absolute;top:16px;font-size:14px;color:var(--texto-suave);transform:translateX(-50%)}
+.bar-qtd{font-size:12px;color:var(--texto-fraco)}
 
-.status-msg{text-align:center;color:#5a7a5a;font-size:13px;padding:40px 0}
+.status-msg{text-align:center;color:var(--texto-suave);font-size:13px;padding:40px 0}
 </style>
 </head>
 <body>
@@ -51,7 +75,10 @@ body{font-family:system-ui,sans-serif;background:#f4f4f2;min-height:100vh}
       <div class="topo-matricula" id="topo-matricula">—</div>
     </div>
   </div>
-  <button class="btn-sair" onclick="sair()">Sair</button>
+  <div class="topo-acoes">
+    <button class="btn-tema" id="btn-tema" onclick="alternarTema()" title="Alternar tema claro/escuro">🌙</button>
+    <button class="btn-sair" onclick="sair()">Sair</button>
+  </div>
 </div>
 
 <div class="wrap">
@@ -63,9 +90,40 @@ const SUPABASE_URL='https://ndwivbhqglpnfyqwjbzu.supabase.co';
 const SUPABASE_KEY='sb_publishable_IhuNziyT5VYrMKRixcPGjA_LAn5ku-7';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
+// ── Tema claro/escuro ────────────────────────────────────────────────
+function aplicarTema(tema){
+  document.documentElement.setAttribute('data-tema',tema);
+  document.getElementById('btn-tema').textContent=tema==='escuro'?'☀️':'🌙';
+  localStorage.setItem('leiturista-tema',tema);
+}
+function alternarTema(){
+  const atual=document.documentElement.getAttribute('data-tema')||'claro';
+  aplicarTema(atual==='escuro'?'claro':'escuro');
+}
+(function initTema(){
+  const salvo=localStorage.getItem('leiturista-tema');
+  const prefereEscuro=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;
+  aplicarTema(salvo||(prefereEscuro?'escuro':'claro'));
+})();
+
 const CORES_NIVEL={bronze:'#ad6f3b',prata:'#a8a8b0',ouro:'#ef9f27',platina:'#8fb4c9'};
 const NOME_NIVEL={bronze:'Bronze',prata:'Prata',ouro:'Ouro',platina:'Platina'};
 const POSICOES=[0,33.3,66.7,100];
+
+// Cor de status da barra: vermelho enquanto tá em Bronze, verde a partir de Prata —
+// separado das cores por nível (CORES_NIVEL), que continuam servindo só pras medalhas.
+const COR_STATUS={ruim:'#c0392b',bom:'#2f9e5c'};
+function corDaBarra(nivel){ return nivel==='bronze'?COR_STATUS.ruim:COR_STATUS.bom; }
+
+// Ícone de medalha (troca a bolinha antiga) — tamanho parecido, com um brilho e uma
+// estrelinha no meio pra parecer medalha mesmo, na cor do nível correspondente.
+function medalhaSvg(cor){
+  return `<svg width="20" height="20" viewBox="0 0 20 20" style="display:block;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.3))">
+    <circle cx="10" cy="10" r="9" fill="${cor}" stroke="rgba(0,0,0,.15)" stroke-width="0.5"/>
+    <circle cx="7.4" cy="6.8" r="3" fill="rgba(255,255,255,.32)"/>
+    <path d="M10 5.3l1.02 2.07 2.28.33-1.65 1.61.39 2.27L10 10.47l-2.04 1.14.39-2.27-1.65-1.61 2.28-.33z" fill="rgba(255,255,255,.92)"/>
+  </svg>`;
+}
 
 // Cortes (Prata/Ouro/Platina) vêm de leiturista_niveis_config, configurável em
 // gerenciar.html — DEFAULTS aqui só entram se a tabela ainda não tiver sido criada/populada.
@@ -193,6 +251,7 @@ async function sair(){await sb.auth.signOut();location.href='login.html';}
   METRICAS.forEach(m=>{
     const valor=valores[m.chave];
     const pos=posicaoNaBarra(valor,m.cortes);
+    const nivelAtual=nivelDoValor(valor,m.cortes);
     const fmt=v=>m.formatoPct?v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%':Math.round(v).toLocaleString('pt-BR');
     // A quantidade bruta (ex: 2 impedimentos) vem DEPOIS do rótulo "Sem Impedimentos",
     // nunca antes — colocar "(2)" logo antes de "Sem Impedimentos" lia como contraditório.
@@ -201,11 +260,11 @@ async function sair(){await sb.auth.signOut();location.href='login.html';}
       <div class="bar-linha">
         <p><span class="bar-valor">${fmt(valor)}</span> <span class="bar-label">${m.titulo}</span>${sufixo}</p>
         <div class="bar-track">
-          <div class="bar-fill" style="width:${pos}%"></div>
-          <div class="bar-dot" style="left:0%;background:${CORES_NIVEL.bronze}"></div>
-          <div class="bar-dot" style="left:33.3%;background:${CORES_NIVEL.prata}"></div>
-          <div class="bar-dot" style="left:66.7%;background:${CORES_NIVEL.ouro}"></div>
-          <div class="bar-dot" style="left:100%;background:${CORES_NIVEL.platina}"></div>
+          <div class="bar-fill" style="width:${pos}%;background:${corDaBarra(nivelAtual)}"></div>
+          <div class="bar-medalha" style="left:0%">${medalhaSvg(CORES_NIVEL.bronze)}</div>
+          <div class="bar-medalha" style="left:33.3%">${medalhaSvg(CORES_NIVEL.prata)}</div>
+          <div class="bar-medalha" style="left:66.7%">${medalhaSvg(CORES_NIVEL.ouro)}</div>
+          <div class="bar-medalha" style="left:100%">${medalhaSvg(CORES_NIVEL.platina)}</div>
           <div class="bar-num" style="left:0%">${fmt(m.cortes.bronze)}</div>
           <div class="bar-num" style="left:33.3%">${fmt(m.cortes.prata)}</div>
           <div class="bar-num" style="left:66.7%">${fmt(m.cortes.ouro)}</div>
