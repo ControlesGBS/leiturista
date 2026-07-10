@@ -36,6 +36,7 @@ body{font-family:system-ui,sans-serif;background:#f4f4f2;min-height:100vh}
 .bar-fill{position:absolute;left:0;top:0;height:8px;background:#3b6d11;border-radius:4px}
 .bar-dot{position:absolute;top:50%;width:18px;height:18px;border-radius:50%;border:3px solid #fff;transform:translate(-50%,-50%);box-shadow:0 0 0 1px rgba(0,0,0,.08)}
 .bar-num{position:absolute;top:16px;font-size:14px;color:#5a7a5a;transform:translateX(-50%)}
+.bar-qtd{font-size:12px;color:#8a9a8a}
 
 .status-msg{text-align:center;color:#5a7a5a;font-size:13px;padding:40px 0}
 </style>
@@ -66,12 +67,30 @@ const CORES_NIVEL={bronze:'#ad6f3b',prata:'#a8a8b0',ouro:'#ef9f27',platina:'#8fb
 const NOME_NIVEL={bronze:'Bronze',prata:'Prata',ouro:'Ouro',platina:'Platina'};
 const POSICOES=[0,33.3,66.7,100];
 
-const METRICAS=[
-  {chave:'leitura',     titulo:'Leituras',          formatoPct:false, cortes:{bronze:0,prata:7500,ouro:9000,platina:10500}},
-  {chave:'impedimento', titulo:'Sem Impedimentos',  formatoPct:true,  cortes:{bronze:0,prata:99.50,ouro:99.60,platina:99.70}},
-  {chave:'erro',        titulo:'Sem Erros',         formatoPct:true,  cortes:{bronze:0,prata:99.90,ouro:99.98,platina:100}},
-  {chave:'reclamacao',  titulo:'Sem reclamações',   formatoPct:true,  cortes:{bronze:0,prata:99.90,ouro:99.98,platina:100}},
-];
+// Cortes (Prata/Ouro/Platina) vêm de leiturista_niveis_config, configurável em
+// gerenciar.html — DEFAULTS aqui só entram se a tabela ainda não tiver sido criada/populada.
+const DEFAULTS_CORTES={
+  leitura:{prata:7500,ouro:9000,platina:10500},
+  impedimento:{prata:99.50,ouro:99.60,platina:99.70},
+  erro:{prata:99.90,ouro:99.98,platina:100},
+  reclamacao:{prata:99.90,ouro:99.98,platina:100},
+};
+
+function montarMetricas(cfg){
+  const c=cfg||{};
+  const cortesDe=chave=>({
+    bronze:0,
+    prata:c[`${chave}_prata`]??DEFAULTS_CORTES[chave].prata,
+    ouro:c[`${chave}_ouro`]??DEFAULTS_CORTES[chave].ouro,
+    platina:c[`${chave}_platina`]??DEFAULTS_CORTES[chave].platina,
+  });
+  return [
+    {chave:'leitura',     titulo:'Leituras',          formatoPct:false, cortes:cortesDe('leitura')},
+    {chave:'impedimento', titulo:'Sem Impedimentos',  formatoPct:true,  cortes:cortesDe('impedimento')},
+    {chave:'erro',        titulo:'Sem Erros',         formatoPct:true,  cortes:cortesDe('erro')},
+    {chave:'reclamacao',  titulo:'Sem reclamações',   formatoPct:true,  cortes:cortesDe('reclamacao')},
+  ];
+}
 
 function nivelDoValor(valor,cortes){
   if(valor>=cortes.platina) return 'platina';
@@ -120,13 +139,15 @@ async function sair(){await sb.auth.signOut();location.href='login.html';}
   document.getElementById('topo-matricula').textContent=`Matrícula ${matricula}`;
   document.getElementById('avatar').textContent=nome.split(' ').slice(0,2).map(p=>p[0]).join('').toUpperCase();
 
-  const [totaisRz,impCount,errCount,reclCount,histNivel]=await Promise.all([
+  const [totaisRz,impCount,errCount,reclCount,histNivel,niveisCfg]=await Promise.all([
     sb.from('totais_rz').select('total_leituras').eq('matricula',matricula).eq('mes_ref',mesRef),
     sb.from('impedimentos').select('*',{count:'exact',head:true}).eq('matricula',matricula).eq('mes_ref',mesRef).ilike('responsabilidade','GBS'),
     sb.from('erros').select('*',{count:'exact',head:true}).eq('matricula',matricula).eq('mes_erro',mesRef),
     sb.from('reclamacoes').select('*',{count:'exact',head:true}).eq('matricula',matricula).eq('mes_ref',mesRef),
-    sb.from('niveis_historico').select('nivel,valor,mes_ref').eq('matricula',matricula).order('mes_ref',{ascending:false}).limit(1).maybeSingle()
+    sb.from('niveis_historico').select('nivel,valor,mes_ref').eq('matricula',matricula).order('mes_ref',{ascending:false}).limit(1).maybeSingle(),
+    sb.from('leiturista_niveis_config').select('*').eq('id',1).maybeSingle()
   ]);
+  const METRICAS=montarMetricas(niveisCfg.data);
 
   let leituras=(totaisRz.data||[]).reduce((s,r)=>s+(r.total_leituras||0),0);
   // Fallback: se totais_rz não tiver dado pra esse mês, soma direto da jornada (mesma lógica do módulo Jornada)
@@ -173,10 +194,12 @@ async function sair(){await sb.auth.signOut();location.href='login.html';}
     const valor=valores[m.chave];
     const pos=posicaoNaBarra(valor,m.cortes);
     const fmt=v=>m.formatoPct?v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%':Math.round(v).toLocaleString('pt-BR');
-    const prefixo=m.formatoPct?`(${qtdBruta[m.chave]}) `:'';
+    // A quantidade bruta (ex: 2 impedimentos) vem DEPOIS do rótulo "Sem Impedimentos",
+    // nunca antes — colocar "(2)" logo antes de "Sem Impedimentos" lia como contraditório.
+    const sufixo=m.formatoPct?` <span class="bar-qtd">(${qtdBruta[m.chave]} no mês)</span>`:'';
     html+=`
       <div class="bar-linha">
-        <p><span class="bar-valor">${prefixo}${fmt(valor)}</span> <span class="bar-label">${m.titulo}</span></p>
+        <p><span class="bar-valor">${fmt(valor)}</span> <span class="bar-label">${m.titulo}</span>${sufixo}</p>
         <div class="bar-track">
           <div class="bar-fill" style="width:${pos}%"></div>
           <div class="bar-dot" style="left:0%;background:${CORES_NIVEL.bronze}"></div>

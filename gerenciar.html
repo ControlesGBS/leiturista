@@ -80,6 +80,46 @@ tbody td{padding:8px 10px;border-bottom:0.5px solid #e0eee0;vertical-align:middl
       </table>
     </div>
   </div>
+
+  <div class="section">
+    <div class="section-hdr">Configurar níveis e metas do painel do leiturista</div>
+    <div class="section-body">
+      <p style="font-size:12px;color:#4a7a4a;margin-bottom:12px">Essas metas definem os cortes de Prata/Ouro/Platina mostrados no painel próprio do leiturista (Bronze é sempre o ponto de partida, 0). Leituras é quantidade; os outros três são % de leituras sem ocorrência no mês.</p>
+      <div class="section-body" style="padding:0;overflow-x:auto">
+        <table>
+          <thead><tr><th>Indicador</th><th>Meta Prata</th><th>Meta Ouro</th><th>Meta Platina</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Leituras (quantidade)</td>
+              <td><input type="number" id="cfg-leitura-prata" style="width:100px"></td>
+              <td><input type="number" id="cfg-leitura-ouro" style="width:100px"></td>
+              <td><input type="number" id="cfg-leitura-platina" style="width:100px"></td>
+            </tr>
+            <tr>
+              <td>Sem Impedimentos (%)</td>
+              <td><input type="number" step="0.01" id="cfg-impedimento-prata" style="width:100px"></td>
+              <td><input type="number" step="0.01" id="cfg-impedimento-ouro" style="width:100px"></td>
+              <td><input type="number" step="0.01" id="cfg-impedimento-platina" style="width:100px"></td>
+            </tr>
+            <tr>
+              <td>Sem Erros (%)</td>
+              <td><input type="number" step="0.01" id="cfg-erro-prata" style="width:100px"></td>
+              <td><input type="number" step="0.01" id="cfg-erro-ouro" style="width:100px"></td>
+              <td><input type="number" step="0.01" id="cfg-erro-platina" style="width:100px"></td>
+            </tr>
+            <tr>
+              <td>Sem Reclamações (%)</td>
+              <td><input type="number" step="0.01" id="cfg-reclamacao-prata" style="width:100px"></td>
+              <td><input type="number" step="0.01" id="cfg-reclamacao-ouro" style="width:100px"></td>
+              <td><input type="number" step="0.01" id="cfg-reclamacao-platina" style="width:100px"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <button class="btn-criar" id="btn-salvar-cfg" onclick="salvarConfigNiveis()" style="margin:16px">Salvar configurações</button>
+      <div class="msg-criar" id="msg-cfg" style="padding:0 16px"></div>
+    </div>
+  </div>
 </div>
 </div>
 
@@ -159,6 +199,65 @@ async function criarAcesso(){
   carregarLista();
 }
 
+// ── Configuração de níveis/metas ────────────────────────────────────
+const CAMPOS_CFG=['leitura','impedimento','erro','reclamacao'];
+const NIVEIS_CFG=['prata','ouro','platina'];
+
+async function carregarConfigNiveis(){
+  const {data,error}=await sb.from('leiturista_niveis_config').select('*').eq('id',1).maybeSingle();
+  const msg=document.getElementById('msg-cfg');
+  if(error){
+    msg.className='msg-criar erro';msg.textContent='Erro ao carregar configurações: '+error.message;
+    return;
+  }
+  if(!data){
+    msg.className='msg-criar erro';
+    msg.textContent='Tabela leiturista_niveis_config ainda não tem a linha padrão — rode o schema-niveis-config.sql no Supabase.';
+    return;
+  }
+  CAMPOS_CFG.forEach(campo=>{
+    NIVEIS_CFG.forEach(nivel=>{
+      const el=document.getElementById(`cfg-${campo}-${nivel}`);
+      if(el) el.value=data[`${campo}_${nivel}`];
+    });
+  });
+}
+
+async function salvarConfigNiveis(){
+  const msg=document.getElementById('msg-cfg');
+  const btn=document.getElementById('btn-salvar-cfg');
+  const payload={id:1};
+  for(const campo of CAMPOS_CFG){
+    for(const nivel of NIVEIS_CFG){
+      const el=document.getElementById(`cfg-${campo}-${nivel}`);
+      const v=parseFloat(el.value);
+      if(el.value===''||isNaN(v)){
+        msg.className='msg-criar erro';msg.textContent=`Preencha a meta ${nivel} de ${campo}.`;return;
+      }
+      payload[`${campo}_${nivel}`]=v;
+    }
+  }
+  // Meta Prata < Ouro < Platina precisa fazer sentido em cada indicador, senão a barra do
+  // leiturista fica invertida/confusa.
+  for(const campo of CAMPOS_CFG){
+    if(!(payload[`${campo}_prata`]<payload[`${campo}_ouro`]&&payload[`${campo}_ouro`]<payload[`${campo}_platina`])){
+      msg.className='msg-criar erro';
+      msg.textContent=`Em "${campo}", a meta Prata precisa ser menor que Ouro, que precisa ser menor que Platina.`;
+      return;
+    }
+  }
+
+  btn.disabled=true;msg.className='msg-criar';msg.textContent='Salvando...';
+  payload.atualizado_em=new Date().toISOString();
+  const {error}=await sb.from('leiturista_niveis_config').upsert(payload);
+  btn.disabled=false;
+
+  if(error){
+    msg.className='msg-criar erro';msg.textContent='Erro ao salvar: '+error.message;return;
+  }
+  msg.className='msg-criar ok';msg.textContent='✓ Configurações salvas! Já valem pro próximo carregamento do painel do leiturista.';
+}
+
 async function carregarLista(){
   const {data,error}=await sb.from('leiturista_logins').select('*').order('criado_em',{ascending:false});
   if(error){
@@ -205,6 +304,7 @@ document.getElementById('busca-lista')?.addEventListener('input',renderLista);
   document.getElementById('app').style.display='block';
   document.getElementById('l-matricula')?.focus();
   carregarLista();
+  carregarConfigNiveis();
 })();
 </script>
 
