@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gerenciar Usuários Leituristas — GBS</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f4f6f4;color:#1a2a1a;font-size:13px}
+.hdr{background:#1a4a1a;color:#fff;padding:10px 24px;display:flex;align-items:center;gap:12px}
+.hdr-title{font-size:15px;font-weight:500;color:#c8e8c8;flex:1}
+.hdr-back{background:none;border:0.5px solid #4a7a4a;color:#90c090;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;text-decoration:none}
+.content{max-width:900px;margin:0 auto;padding:24px 20px}
+.section{background:#fff;border:0.5px solid #c0dcc0;border-radius:10px;margin-bottom:20px;overflow:hidden}
+.section-hdr{background:#1a4a1a;color:#c0e8c0;padding:10px 16px;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:space-between}
+.section-body{padding:16px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group label{font-size:10px;color:#4a7a4a;text-transform:uppercase;letter-spacing:.3px}
+.form-group input{border:0.5px solid #a0c8a0;border-radius:5px;padding:6px 10px;font-size:13px;background:#f8fbf8;color:#1a2a1a;height:32px}
+.form-group input:focus{outline:none;border-color:#2d7a2d}
+.btn-criar{background:#2d7a2d;color:#fff;border:none;border-radius:6px;padding:8px 20px;font-size:13px;font-weight:500;cursor:pointer;margin-top:12px}
+.btn-criar:hover{background:#1a5a1a}
+.btn-criar:disabled{background:#90c090;cursor:not-allowed}
+.msg-criar{font-size:12px;margin-top:8px;min-height:16px}
+.msg-criar.ok{color:#16a34a}
+.msg-criar.erro{color:#a32d2d}
+.toolbar-lista{padding:10px 16px;border-bottom:0.5px solid #e0eee0;display:flex;gap:10px;align-items:center}
+.toolbar-lista input{border:0.5px solid #a0c8a0;border-radius:5px;padding:6px 10px;font-size:13px;background:#f8fbf8;color:#1a2a1a;height:32px;flex:1;max-width:260px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:#f0f8f0;color:#1a4a1a;padding:8px 10px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.3px;font-weight:600;white-space:nowrap}
+tbody tr:nth-child(even){background:#f8fbf8}
+tbody td{padding:8px 10px;border-bottom:0.5px solid #e0eee0;vertical-align:middle}
+.status-msg{padding:16px;text-align:center;color:#4a7a4a}
+.bloqueado{max-width:420px;margin:80px auto;text-align:center;color:#4a7a4a;padding:0 20px}
+</style>
+</head>
+<body>
+
+<div id="app" style="display:none">
+<div class="hdr">
+  <img src="logo_gbs.png" alt="GBS" style="height:36px" onerror="this.style.display='none'">
+  <div class="hdr-title">Gerenciar Usuários Leituristas</div>
+  <a class="hdr-back" href="https://gbsservicos.com/controles">🏠 Portal</a>
+</div>
+
+<div class="content">
+  <div class="section">
+    <div class="section-hdr">Criar acesso do leiturista (matrícula + PIN)</div>
+    <div class="section-body">
+      <p style="font-size:12px;color:#4a7a4a;margin-bottom:12px">Login usado pelo leiturista no painel próprio dele (matrícula + PIN de 6 dígitos) — não tem relação com login de gestor/supervisor.</p>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Matrícula</label>
+          <input type="text" id="l-matricula" placeholder="ex: 0962" oninput="limparMsg()">
+        </div>
+        <div class="form-group">
+          <label>PIN inicial (6 dígitos)</label>
+          <input type="text" id="l-pin" inputmode="numeric" maxlength="6" placeholder="ex: 6 primeiros do CPF" oninput="limparMsg()">
+        </div>
+      </div>
+      <button class="btn-criar" id="btn-criar" onclick="criarAcesso()">Criar acesso</button>
+      <div class="msg-criar" id="msg-criar"></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-hdr">
+      <span>Leituristas com acesso criado</span>
+      <span id="count-lista" style="font-size:11px;color:#90c090"></span>
+    </div>
+    <div class="toolbar-lista">
+      <input type="search" id="busca-lista" placeholder="Buscar por matrícula ou nome..." oninput="renderLista()">
+    </div>
+    <div class="section-body" style="padding:0;overflow-x:auto">
+      <table>
+        <thead><tr><th>Matrícula</th><th>Nome</th><th>Criado em</th><th>Criado por</th></tr></thead>
+        <tbody id="tbody-lista"><tr><td colspan="4" class="status-msg">Carregando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+
+<div id="bloqueado" class="bloqueado" style="display:none">
+  <p>Verificando acesso...</p>
+</div>
+
+<script>
+const SUPABASE_URL='https://ndwivbhqglpnfyqwjbzu.supabase.co';
+const SUPABASE_KEY='sb_publishable_IhuNziyT5VYrMKRixcPGjA_LAn5ku-7';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+// Acesso restrito a uma única conta — não usa perfil (gestor/gestor1/supervisor_geral
+// têm acesso ao admin-usuarios.html normal, esse aqui é separado de propósito.
+const EMAIL_PERMITIDO='eliezer@gbsservicos.com';
+
+let listaCache=[];
+
+function limparMsg(){
+  const msg=document.getElementById('msg-criar');
+  msg.textContent='';msg.className='msg-criar';
+}
+
+function emailDoLeiturista(matricula){
+  const limpo=matricula.toLowerCase().replace(/[^a-z0-9]/g,'');
+  return `leit_${limpo}@leiturista.gbsservicos.interno`;
+}
+
+async function criarAcesso(){
+  const matricula=document.getElementById('l-matricula').value.trim();
+  const pin=document.getElementById('l-pin').value.trim();
+  const msg=document.getElementById('msg-criar');
+  const btn=document.getElementById('btn-criar');
+
+  if(!matricula||!pin){msg.className='msg-criar erro';msg.textContent='Preencha matrícula e PIN.';return;}
+  if(!/^\d{6}$/.test(pin)){msg.className='msg-criar erro';msg.textContent='O PIN precisa ter exatamente 6 dígitos numéricos.';return;}
+
+  btn.disabled=true;msg.className='msg-criar';msg.textContent='Verificando matrícula...';
+
+  const {data:matReg}=await sb.from('matriculas').select('matricula,nome_leiturista').eq('matricula',matricula).maybeSingle();
+  if(!matReg){
+    msg.className='msg-criar erro';msg.textContent=`Matrícula "${matricula}" não encontrada no cadastro de matrículas.`;
+    btn.disabled=false;return;
+  }
+
+  // signUp() troca a sessão ativa do client pra a do usuário recém-criado quando a
+  // confirmação de e-mail está desativada (é o caso aqui) — guarda a sessão do gestor
+  // antes e restaura depois, senão ele é deslogado do próprio painel sem querer.
+  const {data:{session:sessaoGestor}}=await sb.auth.getSession();
+
+  msg.textContent='Criando acesso...';
+  const email=emailDoLeiturista(matricula);
+  const {error}=await sb.auth.signUp({email,password:pin,options:{data:{matricula,perfil:'leiturista'}}});
+
+  if(sessaoGestor){
+    await sb.auth.setSession({access_token:sessaoGestor.access_token,refresh_token:sessaoGestor.refresh_token});
+  }
+
+  if(error){
+    btn.disabled=false;
+    const jaExiste=(error.message||'').toLowerCase().includes('already registered')||(error.message||'').toLowerCase().includes('already been registered');
+    msg.className='msg-criar erro';
+    msg.textContent=jaExiste?'Essa matrícula já tem acesso criado.':'Erro: '+error.message;
+    return;
+  }
+
+  await sb.from('leiturista_logins').upsert({
+    matricula, nome_leiturista:matReg.nome_leiturista||null,
+    criado_em:new Date().toISOString(), criado_por:EMAIL_PERMITIDO,
+  });
+
+  btn.disabled=false;
+  msg.className='msg-criar ok';
+  msg.textContent=`✓ Acesso criado para ${matReg.nome_leiturista||matricula} (matrícula ${matricula}). Informe o PIN "${pin}" pra ele entrar no painel próprio.`;
+  document.getElementById('l-matricula').value='';
+  document.getElementById('l-pin').value='';
+  carregarLista();
+}
+
+async function carregarLista(){
+  const {data,error}=await sb.from('leiturista_logins').select('*').order('criado_em',{ascending:false});
+  if(error){
+    document.getElementById('tbody-lista').innerHTML=`<tr><td colspan="4" class="status-msg">Erro ao carregar: ${error.message}</td></tr>`;
+    return;
+  }
+  listaCache=data||[];
+  renderLista();
+}
+
+function renderLista(){
+  const busca=document.getElementById('busca-lista').value.trim().toLowerCase();
+  const filtrada=busca
+    ? listaCache.filter(l=>String(l.matricula).toLowerCase().includes(busca)||(l.nome_leiturista||'').toLowerCase().includes(busca))
+    : listaCache;
+
+  document.getElementById('count-lista').textContent=`${listaCache.length} leiturista(s)`;
+
+  if(filtrada.length===0){
+    document.getElementById('tbody-lista').innerHTML='<tr><td colspan="4" class="status-msg">Nenhum leiturista encontrado.</td></tr>';
+    return;
+  }
+
+  document.getElementById('tbody-lista').innerHTML=filtrada.map(l=>`
+    <tr>
+      <td><b>${l.matricula}</b></td>
+      <td>${l.nome_leiturista||'—'}</td>
+      <td>${l.criado_em?new Date(l.criado_em).toLocaleString('pt-BR'):'—'}</td>
+      <td style="color:#4a7a4a">${l.criado_por||'—'}</td>
+    </tr>
+  `).join('');
+}
+
+document.getElementById('busca-lista')?.addEventListener('input',renderLista);
+
+(async()=>{
+  const {data:{user}}=await sb.auth.getUser();
+  if(!user||user.email!==EMAIL_PERMITIDO){
+    document.getElementById('bloqueado').innerHTML='<p>Acesso restrito. Redirecionando...</p>';
+    document.getElementById('bloqueado').style.display='block';
+    setTimeout(()=>{location.href='https://gbsservicos.com/controles';},1500);
+    return;
+  }
+  document.getElementById('app').style.display='block';
+  document.getElementById('l-matricula')?.focus();
+  carregarLista();
+})();
+</script>
+
+</body>
+</html>
