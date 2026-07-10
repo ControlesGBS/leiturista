@@ -96,22 +96,28 @@ tbody td{padding:8px 10px;border-bottom:0.5px solid #e0eee0;vertical-align:middl
               <td><input type="number" id="cfg-leitura-platina" style="width:100px"></td>
             </tr>
             <tr>
-              <td>Sem Impedimentos (%)</td>
+              <td>Impedimentos (%)</td>
               <td><input type="number" step="0.01" id="cfg-impedimento-prata" style="width:100px"></td>
               <td><input type="number" step="0.01" id="cfg-impedimento-ouro" style="width:100px"></td>
               <td><input type="number" step="0.01" id="cfg-impedimento-platina" style="width:100px"></td>
             </tr>
             <tr>
-              <td>Sem Erros (%)</td>
+              <td>Erros (%)</td>
               <td><input type="number" step="0.01" id="cfg-erro-prata" style="width:100px"></td>
               <td><input type="number" step="0.01" id="cfg-erro-ouro" style="width:100px"></td>
               <td><input type="number" step="0.01" id="cfg-erro-platina" style="width:100px"></td>
             </tr>
             <tr>
-              <td>Sem Reclamações (%)</td>
+              <td>Reclamações (%)</td>
               <td><input type="number" step="0.01" id="cfg-reclamacao-prata" style="width:100px"></td>
               <td><input type="number" step="0.01" id="cfg-reclamacao-ouro" style="width:100px"></td>
               <td><input type="number" step="0.01" id="cfg-reclamacao-platina" style="width:100px"></td>
+            </tr>
+            <tr>
+              <td><b>Valor pago (R$)</b></td>
+              <td><input type="number" step="0.01" id="cfg-valor-prata" style="width:100px"></td>
+              <td><input type="number" step="0.01" id="cfg-valor-ouro" style="width:100px"></td>
+              <td><input type="number" step="0.01" id="cfg-valor-platina" style="width:100px"></td>
             </tr>
           </tbody>
         </table>
@@ -221,6 +227,10 @@ async function carregarConfigNiveis(){
       if(el) el.value=data[`${campo}_${nivel}`];
     });
   });
+  NIVEIS_CFG.forEach(nivel=>{
+    const el=document.getElementById(`cfg-valor-${nivel}`);
+    if(el) el.value=data[`valor_${nivel}`];
+  });
 }
 
 async function salvarConfigNiveis(){
@@ -245,6 +255,20 @@ async function salvarConfigNiveis(){
       msg.textContent=`Em "${campo}", a meta Prata precisa ser menor que Ouro, que precisa ser menor que Platina.`;
       return;
     }
+  }
+
+  for(const nivel of NIVEIS_CFG){
+    const el=document.getElementById(`cfg-valor-${nivel}`);
+    const v=parseFloat(el.value);
+    if(el.value===''||isNaN(v)){
+      msg.className='msg-criar erro';msg.textContent=`Preencha o valor pago no nível ${nivel}.`;return;
+    }
+    payload[`valor_${nivel}`]=v;
+  }
+  if(!(payload.valor_prata<payload.valor_ouro&&payload.valor_ouro<payload.valor_platina)){
+    msg.className='msg-criar erro';
+    msg.textContent='O valor pago em Prata precisa ser menor que Ouro, que precisa ser menor que Platina.';
+    return;
   }
 
   btn.disabled=true;msg.className='msg-criar';msg.textContent='Salvando...';
@@ -295,7 +319,18 @@ document.getElementById('busca-lista')?.addEventListener('input',renderLista);
 
 (async()=>{
   const {data:{user}}=await sb.auth.getUser();
-  if(!user||user.email!==EMAIL_PERMITIDO){
+  if(!user){
+    location.href='https://gbsservicos.com/controles';return;
+  }
+  // Acesso liberado pro e-mail fixo (dono do módulo) OU pra quem tiver a permissão
+  // "leiturista-admin" marcada em Gerenciar Usuários — assim dá pra liberar outro
+  // supervisor no futuro sem precisar mexer em código.
+  let liberado=user.email===EMAIL_PERMITIDO;
+  if(!liberado){
+    const {data:up}=await sb.from('usuarios_portal').select('relatorios').eq('id',user.id).maybeSingle();
+    liberado=(up?.relatorios||[]).includes('leiturista-admin');
+  }
+  if(!liberado){
     document.getElementById('bloqueado').innerHTML='<p>Acesso restrito. Redirecionando...</p>';
     document.getElementById('bloqueado').style.display='block';
     setTimeout(()=>{location.href='https://gbsservicos.com/controles';},1500);

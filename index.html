@@ -85,10 +85,10 @@ function montarMetricas(cfg){
     platina:c[`${chave}_platina`]??DEFAULTS_CORTES[chave].platina,
   });
   return [
-    {chave:'leitura',     titulo:'Leituras',          formatoPct:false, cortes:cortesDe('leitura')},
-    {chave:'impedimento', titulo:'Sem Impedimentos',  formatoPct:true,  cortes:cortesDe('impedimento')},
-    {chave:'erro',        titulo:'Sem Erros',         formatoPct:true,  cortes:cortesDe('erro')},
-    {chave:'reclamacao',  titulo:'Sem reclamações',   formatoPct:true,  cortes:cortesDe('reclamacao')},
+    {chave:'leitura',     titulo:'Leituras',      formatoPct:false, cortes:cortesDe('leitura')},
+    {chave:'impedimento', titulo:'Impedimentos',  formatoPct:true,  cortes:cortesDe('impedimento')},
+    {chave:'erro',        titulo:'Erros',         formatoPct:true,  cortes:cortesDe('erro')},
+    {chave:'reclamacao',  titulo:'Reclamações',   formatoPct:true,  cortes:cortesDe('reclamacao')},
   ];
 }
 
