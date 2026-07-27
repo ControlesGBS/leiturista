@@ -5,11 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Meu painel — GBS</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 :root{
   --bg:#f4f4f2; --card-bg:#fff; --card-border:#e0e0e0;
   --texto:#1a2a1a; --texto-suave:#5a7a5a; --texto-fraco:#8a9a8a;
-  --track-bg:#e8e8e6;
+  --track-bg:#e8e8e6; --azul-topo:#0f4c86;
 }
 @media (prefers-color-scheme: dark){
   :root{
@@ -31,58 +32,104 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,sans-serif;background:var(--bg);min-height:100vh}
 
-.topo{background:#025e37;color:#fff;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px}
-.topo-user{display:flex;align-items:center;gap:10px}
-.avatar{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-weight:500;font-size:12px}
-.topo-nome{font-size:13px;font-weight:500}
-.topo-matricula{font-size:11px;opacity:.8}
-.topo-acoes{display:flex;align-items:center;gap:8px}
-.btn-tema{background:none;border:1px solid rgba(255,255,255,.5);color:#fff;width:30px;height:30px;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
-.btn-sair{background:none;border:1px solid rgba(255,255,255,.5);color:#fff;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer}
+.wrap{max-width:460px;width:100%;margin:0 auto;padding:0 14px 20px}
 
-.wrap{max-width:900px;width:100%;margin:0 auto;padding:0 16px 16px;box-sizing:border-box}
+.topo{background:var(--azul-topo);border-radius:0 0 16px 16px;padding:16px 16px 18px;margin-bottom:12px}
+.topo-linha{display:flex;align-items:center;gap:12px}
+.btn-menu{background:rgba(255,255,255,.15);border:none;color:#fff;width:34px;height:34px;border-radius:8px;cursor:pointer;font-size:16px;flex-shrink:0}
+.avatar{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-weight:500;font-size:14px;color:#fff;flex-shrink:0}
+.saudacao{font-size:12px;color:rgba(255,255,255,.75);margin:0}
+.nome{font-size:16px;font-weight:500;color:#fff;margin:2px 0 0}
+.funcao-base{font-size:12px;color:rgba(255,255,255,.75);margin:2px 0 0}
 
+.menu-drop{background:var(--card-bg);border:0.5px solid var(--card-border);border-radius:10px;padding:6px;margin:8px 0 0;display:none}
+.menu-drop button{width:100%;text-align:left;background:none;border:none;color:var(--texto);font-size:13px;padding:10px 12px;border-radius:8px;cursor:pointer}
+.menu-drop button:active{background:var(--track-bg)}
+
+.data-hora{background:var(--card-bg);border:0.5px solid var(--card-border);border-radius:12px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--texto)}
+.data-hora .hora{font-weight:500;font-size:14px}
+
+.sec-titulo{display:flex;align-items:center;gap:8px;margin:0 2px 8px;font-size:14px;font-weight:500;color:var(--texto)}
+
+.tile-row{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px;margin-bottom:16px}
+.tile{background:var(--card-bg);border:1.5px solid var(--card-border);border-radius:10px;padding:10px 4px;text-align:center}
+.tile-num{font-size:18px;font-weight:600;margin:0}
+.tile-lbl{font-size:10.5px;color:var(--texto-suave);margin:3px 0 0}
+.tile.clicavel{cursor:pointer}
+.tile.sel{border-color:var(--tile-cor,#0f4c86);border-width:2px}
+
+.cat-card{background:var(--card-bg);border:0.5px solid var(--card-border);border-radius:12px;padding:14px;margin-bottom:12px}
+.cat-topo{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.cat-titulo{font-size:13px;font-weight:500;color:var(--texto);flex:1}
+.btn-ver{display:flex;align-items:center;gap:2px;font-size:12px;color:var(--azul-topo);background:none;border:none;padding:2px;cursor:pointer}
+.btn-ver .chev{display:inline-block;transition:transform .15s}
+
+.tabela-wrap{margin-top:10px;overflow-x:auto;border-top:0.5px solid var(--card-border);padding-top:10px}
+.tabela-wrap table{border-collapse:collapse;font-size:11.5px;white-space:nowrap;color:var(--texto)}
+.tabela-wrap th{text-align:left;color:var(--texto-suave);font-weight:500;padding:2px 10px 6px 0}
+.tabela-wrap td{padding:5px 10px 5px 0;border-top:0.5px solid var(--card-border)}
+
+.chart-card{background:var(--card-bg);border:0.5px solid var(--card-border);border-radius:12px;padding:14px 16px 8px;margin-bottom:14px}
+.chart-titulo{font-size:12px;color:var(--texto-suave);margin:0}
+.chart-titulo b{color:var(--texto);font-weight:500}
+
+.status-msg{text-align:center;color:var(--texto-suave);font-size:13px;padding:40px 0}
+
+/* ── Premiação (painel de nível antigo) ─────────────────────────────── */
+.topo-premiacao{display:flex;align-items:center;gap:10px;padding:14px 2px}
+.btn-voltar{background:none;border:1px solid var(--card-border);color:var(--texto);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:15px}
+.titulo-premiacao{font-size:15px;font-weight:500;color:var(--texto)}
 .card{background:var(--card-bg);border-radius:14px;border:0.5px solid var(--card-border);padding:24px 24px 14px;margin-bottom:14px}
-
 .nivel-box{border-radius:10px;padding:14px 16px;margin-bottom:22px}
 .nivel-box p{margin:0 0 5px;font-size:17px;text-align:center}
 .nivel-box p:last-child{margin-bottom:0}
-
 .mes-titulo{font-size:17px;font-weight:500;margin:0 0 6px;color:var(--texto);text-align:left}
 .mes-sub{font-size:16px;color:var(--texto-suave);margin:0 0 28px;line-height:1.5;text-align:left}
-
 .bar-linha{margin-bottom:60px}
 .bar-linha p{margin:0 0 14px;text-align:left}
 .bar-valor{font-size:15px;font-weight:500;color:var(--texto)}
 .bar-label{font-size:14px;color:var(--texto-suave)}
-
 .bar-track{position:relative;height:8px;background:var(--track-bg);border-radius:4px;margin:0 9px 26px}
 .bar-fill{position:absolute;left:0;top:0;height:8px;border-radius:4px;transition:background .2s}
 .bar-medalha{position:absolute;top:50%;transform:translate(-50%,-50%)}
 .bar-num{position:absolute;top:16px;font-size:14px;color:var(--texto-suave);transform:translateX(-50%)}
 .bar-qtd{font-size:12px;color:var(--texto-fraco)}
-
-.status-msg{text-align:center;color:var(--texto-suave);font-size:13px;padding:40px 0}
 </style>
 </head>
 <body>
 
-<div class="topo">
-  <div class="topo-user">
-    <div class="avatar" id="avatar">--</div>
-    <div>
-      <div class="topo-nome" id="topo-nome">—</div>
-      <div class="topo-matricula" id="topo-matricula">—</div>
+<div class="wrap" id="tela-dashboard">
+  <div class="topo">
+    <div class="topo-linha">
+      <button class="btn-menu" onclick="toggleMenu()" aria-label="Menu">&#9776;</button>
+      <div class="avatar" id="avatar">--</div>
+      <div>
+        <p class="saudacao" id="saudacao">Olá!</p>
+        <p class="nome" id="topo-nome">—</p>
+        <p class="funcao-base" id="topo-funcao-base">—</p>
+      </div>
+    </div>
+    <div class="menu-drop" id="menu-drop">
+      <button onclick="abrirPremiacao()">&#127942; Premiação</button>
+      <button onclick="alternarTema()" id="btn-tema-txt">&#127769; Alternar tema</button>
+      <button onclick="sair()">&#8594; Sair</button>
     </div>
   </div>
-  <div class="topo-acoes">
-    <button class="btn-tema" id="btn-tema" onclick="alternarTema()" title="Alternar tema claro/escuro">🌙</button>
-    <button class="btn-sair" onclick="sair()">Sair</button>
+
+  <div class="data-hora">
+    <span id="data-atual">—</span>
+    <span class="hora" id="hora-atual">—</span>
   </div>
+
+  <div id="conteudo-dashboard" class="status-msg">Carregando seus indicadores...</div>
 </div>
 
-<div class="wrap">
-  <div id="conteudo" class="status-msg">Carregando seus indicadores...</div>
+<div class="wrap" id="tela-premiacao" style="display:none">
+  <div class="topo-premiacao">
+    <button class="btn-voltar" onclick="fecharPremiacao()" aria-label="Voltar">&#8592;</button>
+    <span class="titulo-premiacao">Premiação</span>
+  </div>
+  <div id="conteudo-premiacao" class="status-msg">Carregando...</div>
 </div>
 
 <script>
@@ -93,7 +140,6 @@ const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 // ── Tema claro/escuro ────────────────────────────────────────────────
 function aplicarTema(tema){
   document.documentElement.setAttribute('data-tema',tema);
-  document.getElementById('btn-tema').textContent=tema==='escuro'?'☀️':'🌙';
   localStorage.setItem('leiturista-tema',tema);
 }
 function alternarTema(){
@@ -106,17 +152,269 @@ function alternarTema(){
   aplicarTema(salvo||(prefereEscuro?'escuro':'claro'));
 })();
 
+async function sair(){await sb.auth.signOut();location.href='login.html';}
+
+function toggleMenu(){
+  const el=document.getElementById('menu-drop');
+  el.style.display=el.style.display==='none'||!el.style.display?'block':'none';
+}
+
+// ── Classificação de rota em 3 baldes (mesma regra do painel: 1-79 Urbano,
+// 80-88 Povoado, 89-99 Rural — 95/96 contam como Rural aqui de propósito) ──
+function bucketLeiturista(rota){
+  const v=parseInt(rota)||0;
+  if(v>=1&&v<=79) return 'urbano';
+  if(v>=80&&v<=88) return 'povoado';
+  return 'rural';
+}
+function rotaDoUl(ul){ return ul?ul.slice(6):null; }
+
+let MATRICULA=null, MES_REF=null;
+
+function mesesAtras(qtd){
+  const lista=[];
+  const hoje=new Date();
+  for(let i=qtd-1;i>=0;i--){
+    const d=new Date(hoje.getFullYear(),hoje.getMonth()-i,1);
+    const ref=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;
+    const label=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][d.getMonth()];
+    lista.push({ref,label});
+  }
+  return lista;
+}
+
+// ── Cabeçalho: saudação, nome, função/base, data/hora ───────────────────
+function preencherCabecalho(nome, funcao, base){
+  const hora=new Date().getHours();
+  document.getElementById('saudacao').textContent = hora<12?'Bom dia!':(hora<18?'Boa tarde!':'Boa noite!');
+  document.getElementById('topo-nome').textContent=nome;
+  document.getElementById('topo-funcao-base').textContent=`${funcao||'Leiturista'} · ${base||'—'}`;
+  document.getElementById('avatar').textContent=nome.split(' ').slice(0,2).map(p=>p[0]).join('').toUpperCase();
+
+  const agora=new Date();
+  document.getElementById('data-atual').textContent=agora.toLocaleDateString('pt-BR');
+  document.getElementById('hora-atual').textContent=agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
+
+// ── Busca dos 4 indicadores do mês atual ────────────────────────────────
+async function buscarIndicadoresDoMes(){
+  const [jornadaRows, impRows, errRows, reclRows] = await Promise.all([
+    sb.from('jornada').select('qtd_leituras,leituras_urbano,leituras_rural,leituras_povoado')
+      .ilike('matricula',MATRICULA).eq('mes_ref',MES_REF),
+    sb.from('impedimentos').select('ul,instalacao,endereco,ocorrencia')
+      .ilike('matricula',MATRICULA).eq('mes_ref',MES_REF).ilike('responsabilidade','GBS'),
+    sb.from('erros').select('ul,instalacao,cidade,mes_provavel')
+      .ilike('matricula',MATRICULA).eq('mes_erro',MES_REF),
+    sb.from('reclamacoes').select('instalacao,data,motivo')
+      .ilike('matricula',MATRICULA).eq('mes_ref',MES_REF),
+  ]);
+
+  let leituras={total:0,urbano:0,rural:0,povoado:0};
+  (jornadaRows.data||[]).forEach(r=>{
+    leituras.total+=r.qtd_leituras||0;
+    leituras.urbano+=r.leituras_urbano||0;
+    leituras.rural+=r.leituras_rural||0;
+    leituras.povoado+=r.leituras_povoado||0;
+  });
+  // Fallback: mês sem linha em jornada com as colunas novas (upload antigo) -- soma o
+  // total via totais_rz, mas a quebra urbano/rural/povoado fica em 0 (não existia ainda).
+  if(!jornadaRows.data||!jornadaRows.data.length){
+    const {data:totRz}=await sb.from('totais_rz').select('total_leituras').ilike('matricula',MATRICULA).eq('mes_ref',MES_REF);
+    leituras.total=(totRz||[]).reduce((s,r)=>s+(r.total_leituras||0),0);
+  }
+
+  const impDetalhe=impRows.data||[];
+  const impostoBucket={urbano:0,rural:0,povoado:0};
+  impDetalhe.forEach(r=>{ impostoBucket[bucketLeiturista(rotaDoUl(r.ul))]++; });
+  const impedimentos={total:impDetalhe.length,urbano:impostoBucket.urbano,rural:impostoBucket.rural,povoado:impostoBucket.povoado,detalhe:impDetalhe};
+
+  const errDetalhe=errRows.data||[];
+  const erros={total:errDetalhe.length,detalhe:errDetalhe};
+
+  const reclDetalhe=reclRows.data||[];
+  const reclamacoes={total:reclDetalhe.length,detalhe:reclDetalhe};
+
+  return {leituras,impedimentos,erros,reclamacoes};
+}
+
+// ── Histórico (6 meses) de um indicador — buscado só quando o Total é clicado ──
+async function buscarHistorico(indicador){
+  const meses=mesesAtras(6);
+  if(indicador==='leituras'){
+    const {data}=await sb.from('jornada').select('mes_ref,qtd_leituras')
+      .ilike('matricula',MATRICULA).in('mes_ref',meses.map(m=>m.ref));
+    const porMes={};
+    (data||[]).forEach(r=>{ porMes[r.mes_ref]=(porMes[r.mes_ref]||0)+(r.qtd_leituras||0); });
+    return {labels:meses.map(m=>m.label), valores:meses.map(m=>porMes[m.ref]||0)};
+  }
+  const tabela = indicador==='impedimentos' ? 'impedimentos' : (indicador==='erros' ? 'erros' : 'reclamacoes');
+  const colMes = indicador==='erros' ? 'mes_erro' : 'mes_ref';
+  const extra = indicador==='impedimentos' ? (q=>q.ilike('responsabilidade','GBS')) : (q=>q);
+  const valores=await Promise.all(meses.map(async m=>{
+    let q=sb.from(tabela).select('*',{count:'exact',head:true}).ilike('matricula',MATRICULA).eq(colMes,m.ref);
+    q=extra(q);
+    const {count}=await q;
+    return count||0;
+  }));
+  return {labels:meses.map(m=>m.label), valores};
+}
+
+let chart=null;
+function renderChart(labels, valores, cor, tituloTexto){
+  document.getElementById('chart-titulo-valor').textContent=tituloTexto;
+  const ctx=document.getElementById('chart-hist').getContext('2d');
+  if(chart){ chart.data.labels=labels; chart.data.datasets[0].data=valores; chart.data.datasets[0].backgroundColor=cor; chart.update(); return; }
+  chart=new Chart(ctx,{
+    type:'bar',
+    data:{labels, datasets:[{data:valores, backgroundColor:cor, borderRadius:4, maxBarThickness:28}]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        y:{beginAtZero:true, ticks:{font:{size:10}}},
+        x:{ticks:{font:{size:11}}, grid:{display:false}}
+      }
+    }
+  });
+}
+
+function marcarSelecionado(elClicado){
+  document.querySelectorAll('.tile.clicavel').forEach(t=>t.classList.remove('sel'));
+  elClicado.classList.add('sel');
+}
+
+async function aoClicarTotal(indicador, cor, tituloTexto, elClicado){
+  marcarSelecionado(elClicado);
+  document.getElementById('chart-titulo-valor').textContent='Carregando...';
+  const {labels,valores}=await buscarHistorico(indicador);
+  renderChart(labels, valores, cor, tituloTexto);
+}
+
+function toggleLista(catId){
+  const wrap=document.getElementById('tabela-'+catId);
+  const btn=document.getElementById('btn-ver-'+catId);
+  const aberto=wrap.style.display!=='none';
+  wrap.style.display=aberto?'none':'';
+  btn.querySelector('.lbl').textContent=aberto?'Toque para ver':'Ocultar';
+  btn.querySelector('.chev').style.transform=aberto?'rotate(0deg)':'rotate(90deg)';
+}
+
+function tileHtml(key, valor, label, cor, clicavel, tituloChart){
+  const onclick = clicavel ? `onclick="aoClicarTotal('${key}','${cor}','${tituloChart}',this)"` : '';
+  return `<div class="tile${clicavel?' clicavel':''}" style="--tile-cor:${cor}" ${onclick}>
+    <p class="tile-num" style="color:${cor}">${valor.toLocaleString('pt-BR')}</p>
+    <p class="tile-lbl">${label}</p>
+  </div>`;
+}
+
+function montarDashboard(ind){
+  const CORES={total:'#0f4c86',urbano:'#3B6D11',rural:'#854F0B',povoado:'#534AB7',impostos:'#712B13',erros:'#633806',reclamacoes:'#72243E'};
+
+  let html='';
+
+  html+=`<p class="sec-titulo">&#128202; Minhas leituras — ${nomeMesAtual()}</p>`;
+  html+=`<div class="tile-row">`;
+  html+=tileHtml('leituras', ind.leituras.total, 'Total', CORES.total, true, 'Leituras');
+  html+=tileHtml('leituras', ind.leituras.urbano, 'Urbano', CORES.urbano, false);
+  html+=tileHtml('leituras', ind.leituras.rural, 'Rural', CORES.rural, false);
+  html+=tileHtml('leituras', ind.leituras.povoado, 'Povoado', CORES.povoado, false);
+  html+=`</div>`;
+
+  html+=`<div class="cat-card">
+    <div class="cat-topo">
+      <span class="cat-titulo">&#9888;&#65039; Meus impedimentos</span>
+      <button class="btn-ver" id="btn-ver-imp" onclick="toggleLista('imp')">
+        <span class="lbl">Toque para ver</span><i class="chev">&#8250;</i>
+      </button>
+    </div>
+    <div class="tile-row">
+      ${tileHtml('impedimentos', ind.impedimentos.total, 'Total', CORES.impostos, true, 'Impedimentos')}
+      ${tileHtml('impedimentos', ind.impedimentos.urbano, 'Urbano', CORES.urbano, false)}
+      ${tileHtml('impedimentos', ind.impedimentos.rural, 'Rural', CORES.rural, false)}
+      ${tileHtml('impedimentos', ind.impedimentos.povoado, 'Povoado', CORES.povoado, false)}
+    </div>
+    <div class="tabela-wrap" id="tabela-imp" style="display:none">
+      <table>
+        <tr><th>UL</th><th>Instalação</th><th>Endereço</th><th>Ocorrência</th></tr>
+        ${ind.impedimentos.detalhe.map(r=>`<tr><td>${r.ul||'—'}</td><td>${r.instalacao||'—'}</td><td>${r.endereco||'—'}</td><td>${r.ocorrencia||'—'}</td></tr>`).join('')||'<tr><td colspan="4">Nenhum impedimento no mês.</td></tr>'}
+      </table>
+    </div>
+  </div>`;
+
+  html+=`<div class="cat-card">
+    <div class="cat-topo">
+      <span class="cat-titulo">&#128027; Meus erros de leitura</span>
+      <button class="btn-ver" id="btn-ver-err" onclick="toggleLista('err')">
+        <span class="lbl">Toque para ver</span><i class="chev">&#8250;</i>
+      </button>
+    </div>
+    <div class="tile-row" style="grid-auto-flow:row;grid-template-columns:1fr">
+      ${tileHtml('erros', ind.erros.total, 'Total', CORES.erros, true, 'Erros')}
+    </div>
+    <div class="tabela-wrap" id="tabela-err" style="display:none">
+      <table>
+        <tr><th>UL</th><th>Instalação</th><th>Cidade</th><th>Mês provável</th></tr>
+        ${ind.erros.detalhe.map(r=>`<tr><td>${r.ul||'—'}</td><td>${r.instalacao||'—'}</td><td>${r.cidade||'—'}</td><td>${r.mes_provavel||'—'}</td></tr>`).join('')||'<tr><td colspan="4">Nenhum erro no mês.</td></tr>'}
+      </table>
+    </div>
+  </div>`;
+
+  html+=`<div class="cat-card">
+    <div class="cat-topo">
+      <span class="cat-titulo">&#128172; Minhas reclamações</span>
+      <button class="btn-ver" id="btn-ver-recl" onclick="toggleLista('recl')">
+        <span class="lbl">Toque para ver</span><i class="chev">&#8250;</i>
+      </button>
+    </div>
+    <div class="tile-row" style="grid-auto-flow:row;grid-template-columns:1fr">
+      ${tileHtml('reclamacoes', ind.reclamacoes.total, 'Total', CORES.reclamacoes, true, 'Reclamações')}
+    </div>
+    <div class="tabela-wrap" id="tabela-recl" style="display:none">
+      <table>
+        <tr><th>Instalação</th><th>Data</th><th>Causa</th></tr>
+        ${ind.reclamacoes.detalhe.map(r=>`<tr><td>${r.instalacao||'—'}</td><td>${r.data?new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</td><td>${r.motivo||'—'}</td></tr>`).join('')||'<tr><td colspan="3">Nenhuma reclamação no mês.</td></tr>'}
+      </table>
+    </div>
+  </div>`;
+
+  html+=`<div class="chart-card">
+    <p class="chart-titulo">Histórico — <b id="chart-titulo-valor">selecione um total acima</b></p>
+    <div style="position:relative;height:160px;margin-top:8px">
+      <canvas id="chart-hist"></canvas>
+    </div>
+  </div>`;
+
+  document.getElementById('conteudo-dashboard').innerHTML=html;
+  document.getElementById('conteudo-dashboard').className='';
+
+  aoClicarTotal('leituras', CORES.total, 'Leituras', document.querySelector('.tile.clicavel'));
+}
+
+function nomeMesAtual(){
+  const meses=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  const hoje=new Date();
+  return `${meses[hoje.getMonth()]} de ${hoje.getFullYear()}`;
+}
+
+// ── Premiação (painel de nível — conteúdo antigo, carregado sob demanda) ────
+let premiacaoCarregada=false;
+function abrirPremiacao(){
+  toggleMenu();
+  document.getElementById('tela-dashboard').style.display='none';
+  document.getElementById('tela-premiacao').style.display='block';
+  if(!premiacaoCarregada){ premiacaoCarregada=true; carregarPremiacao(); }
+}
+function fecharPremiacao(){
+  document.getElementById('tela-premiacao').style.display='none';
+  document.getElementById('tela-dashboard').style.display='block';
+}
+
 const CORES_NIVEL={bronze:'#ad6f3b',prata:'#a8a8b0',ouro:'#ef9f27',platina:'#8fb4c9'};
 const NOME_NIVEL={bronze:'Bronze',prata:'Prata',ouro:'Ouro',platina:'Platina'};
 const POSICOES=[0,33.3,66.7,100];
-
-// Cor de status da barra: vermelho enquanto tá em Bronze, verde a partir de Prata —
-// separado das cores por nível (CORES_NIVEL), que continuam servindo só pras medalhas.
 const COR_STATUS={ruim:'#c0392b',bom:'#2f9e5c'};
 function corDaBarra(nivel){ return nivel==='bronze'?COR_STATUS.ruim:COR_STATUS.bom; }
 
-// Ícone de medalha (troca a bolinha antiga) — tamanho parecido, com um brilho e uma
-// estrelinha no meio pra parecer medalha mesmo, na cor do nível correspondente.
 function medalhaSvg(cor){
   return `<svg width="20" height="20" viewBox="0 0 20 20" style="display:block;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.3))">
     <circle cx="10" cy="10" r="9" fill="${cor}" stroke="rgba(0,0,0,.15)" stroke-width="0.5"/>
@@ -125,8 +423,6 @@ function medalhaSvg(cor){
   </svg>`;
 }
 
-// Cortes (Prata/Ouro/Platina) vêm de leiturista_niveis_config, configurável em
-// gerenciar.html — DEFAULTS aqui só entram se a tabela ainda não tiver sido criada/populada.
 const DEFAULTS_CORTES={
   leitura:{prata:7500,ouro:9000,platina:10500},
   impedimento:{prata:99.50,ouro:99.60,platina:99.70},
@@ -169,48 +465,20 @@ function posicaoNaBarra(valor,cortes){
   return 100;
 }
 
-function nomeMesAtual(){
-  const meses=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
-  const hoje=new Date();
-  const ultimoDia=new Date(hoje.getFullYear(),hoje.getMonth()+1,0).getDate();
-  return `01 a ${ultimoDia} de ${meses[hoje.getMonth()]}`;
-}
-
-async function sair(){await sb.auth.signOut();location.href='login.html';}
-
-(async function init(){
-  const {data:{user}}=await sb.auth.getUser();
-  if(!user){location.href='login.html';return;}
-
-  const matricula=user.user_metadata?.matricula;
-  if(!matricula){
-    document.getElementById('conteudo').textContent='Login sem matrícula vinculada. Fale com seu gestor.';
-    return;
-  }
-
-  const hoje=new Date();
-  const mesRef=`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-01`;
-
-  const {data:matInfo}=await sb.from('matriculas').select('nome_leiturista').ilike('matricula',matricula).maybeSingle();
-  const nome=matInfo?.nome_leiturista||matricula;
-  document.getElementById('topo-nome').textContent=nome;
-  document.getElementById('topo-matricula').textContent=`Matrícula ${matricula}`;
-  document.getElementById('avatar').textContent=nome.split(' ').slice(0,2).map(p=>p[0]).join('').toUpperCase();
-
+async function carregarPremiacao(){
   const [totaisRz,impCount,errCount,reclCount,histNivel,niveisCfg]=await Promise.all([
-    sb.from('totais_rz').select('total_leituras').ilike('matricula',matricula).eq('mes_ref',mesRef),
-    sb.from('impedimentos').select('*',{count:'exact',head:true}).ilike('matricula',matricula).eq('mes_ref',mesRef).ilike('responsabilidade','GBS'),
-    sb.from('erros').select('*',{count:'exact',head:true}).ilike('matricula',matricula).eq('mes_erro',mesRef),
-    sb.from('reclamacoes').select('*',{count:'exact',head:true}).ilike('matricula',matricula).eq('mes_ref',mesRef),
-    sb.from('niveis_historico').select('nivel,valor,mes_ref').ilike('matricula',matricula).order('mes_ref',{ascending:false}).limit(1).maybeSingle(),
+    sb.from('totais_rz').select('total_leituras').ilike('matricula',MATRICULA).eq('mes_ref',MES_REF),
+    sb.from('impedimentos').select('*',{count:'exact',head:true}).ilike('matricula',MATRICULA).eq('mes_ref',MES_REF).ilike('responsabilidade','GBS'),
+    sb.from('erros').select('*',{count:'exact',head:true}).ilike('matricula',MATRICULA).eq('mes_erro',MES_REF),
+    sb.from('reclamacoes').select('*',{count:'exact',head:true}).ilike('matricula',MATRICULA).eq('mes_ref',MES_REF),
+    sb.from('niveis_historico').select('nivel,valor,mes_ref').ilike('matricula',MATRICULA).order('mes_ref',{ascending:false}).limit(1).maybeSingle(),
     sb.from('leiturista_niveis_config').select('*').eq('id',1).maybeSingle()
   ]);
   const METRICAS=montarMetricas(niveisCfg.data);
 
   let leituras=(totaisRz.data||[]).reduce((s,r)=>s+(r.total_leituras||0),0);
-  // Fallback: se totais_rz não tiver dado pra esse mês, soma direto da jornada (mesma lógica do módulo Jornada)
   if(!totaisRz.data||!totaisRz.data.length){
-    const {data:jornadaRows}=await sb.from('jornada').select('qtd_leituras').ilike('matricula',matricula).eq('mes_ref',mesRef);
+    const {data:jornadaRows}=await sb.from('jornada').select('qtd_leituras').ilike('matricula',MATRICULA).eq('mes_ref',MES_REF);
     leituras=(jornadaRows||[]).reduce((s,r)=>s+(r.qtd_leituras||0),0);
   }
   const qtdImp=impCount.count||0;
@@ -227,13 +495,8 @@ async function sair(){await sb.auth.signOut();location.href='login.html';}
     valores.leitura=0; valores.impedimento=0; valores.erro=0; valores.reclamacao=0;
   }
 
-  const niveisPorMetrica=METRICAS.map(m=>nivelDoValor(valores[m.chave],m.cortes));
-  const ordem=['bronze','prata','ouro','platina'];
-  const nivelGeralAoVivo=ordem[Math.min(...niveisPorMetrica.map(n=>ordem.indexOf(n)))];
-
   const nivelOficial=histNivel.data?.nivel||'bronze';
   const beneficioOficial=histNivel.data?.valor??0;
-
   const cor=CORES_NIVEL[nivelOficial];
 
   let html=`
@@ -253,8 +516,6 @@ async function sair(){await sb.auth.signOut();location.href='login.html';}
     const pos=posicaoNaBarra(valor,m.cortes);
     const nivelAtual=nivelDoValor(valor,m.cortes);
     const fmt=v=>m.formatoPct?v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%':Math.round(v).toLocaleString('pt-BR');
-    // A quantidade bruta (ex: 2 impedimentos) vem DEPOIS do rótulo "Sem Impedimentos",
-    // nunca antes — colocar "(2)" logo antes de "Sem Impedimentos" lia como contraditório.
     const sufixo=m.formatoPct?` <span class="bar-qtd">(${qtdBruta[m.chave]} no mês)</span>`:'';
     html+=`
       <div class="bar-linha">
@@ -274,7 +535,30 @@ async function sair(){await sb.auth.signOut();location.href='login.html';}
   });
 
   html+='</div>';
-  document.getElementById('conteudo').innerHTML=html;
+  document.getElementById('conteudo-premiacao').innerHTML=html;
+  document.getElementById('conteudo-premiacao').className='';
+}
+
+// ── Início ───────────────────────────────────────────────────────────────
+(async function init(){
+  const {data:{user}}=await sb.auth.getUser();
+  if(!user){location.href='login.html';return;}
+
+  MATRICULA=user.user_metadata?.matricula;
+  if(!MATRICULA){
+    document.getElementById('conteudo-dashboard').textContent='Login sem matrícula vinculada. Fale com seu gestor.';
+    return;
+  }
+
+  const hoje=new Date();
+  MES_REF=`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-01`;
+
+  const {data:matInfo}=await sb.from('matriculas').select('nome_leiturista,funcao,base').ilike('matricula',MATRICULA).maybeSingle();
+  const nome=matInfo?.nome_leiturista||MATRICULA;
+  preencherCabecalho(nome, matInfo?.funcao, matInfo?.base);
+
+  const indicadores=await buscarIndicadoresDoMes();
+  montarDashboard(indicadores);
 })();
 </script>
 
