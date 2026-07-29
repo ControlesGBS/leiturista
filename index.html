@@ -357,7 +357,7 @@ function preencherCabecalho(nome, funcao, base){
 
 // ── Busca dos 4 indicadores do mês atual ────────────────────────────────
 async function buscarIndicadoresDoMes(){
-  const [jornadaRows, impRows, errRows, reclRows] = await Promise.all([
+  const [jornadaRows, impRows, errRows, reclRows, totRzRows] = await Promise.all([
     sb.from('jornada').select('qtd_leituras,leituras_urbano,leituras_rural,leituras_povoado')
       .ilike('matricula',MATRICULA).eq('mes_ref',MES_REF),
     sb.from('impedimentos').select('ul,instalacao,endereco,ocorrencia')
@@ -366,6 +366,7 @@ async function buscarIndicadoresDoMes(){
       .ilike('matricula',MATRICULA).eq('mes_erro',MES_REF),
     sb.from('reclamacoes').select('instalacao,data,motivo')
       .ilike('matricula',MATRICULA).eq('mes_ref',MES_REF),
+    sb.from('totais_rz').select('rz,total_leituras').ilike('matricula',MATRICULA).eq('mes_ref',MES_REF),
   ]);
 
   let leituras={total:0,urbano:0,rural:0,povoado:0};
@@ -375,11 +376,12 @@ async function buscarIndicadoresDoMes(){
     leituras.rural+=r.leituras_rural||0;
     leituras.povoado+=r.leituras_povoado||0;
   });
+  const rzDetalhe=(totRzRows.data||[]).slice().sort((a,b)=>(a.rz||'').localeCompare(b.rz||'',undefined,{numeric:true}));
+  leituras.detalhe=rzDetalhe;
   // Fallback: mês sem linha em jornada com as colunas novas (upload antigo) -- soma o
   // total via totais_rz, mas a quebra urbano/rural/povoado fica em 0 (não existia ainda).
   if(!jornadaRows.data||!jornadaRows.data.length){
-    const {data:totRz}=await sb.from('totais_rz').select('total_leituras').ilike('matricula',MATRICULA).eq('mes_ref',MES_REF);
-    leituras.total=(totRz||[]).reduce((s,r)=>s+(r.total_leituras||0),0);
+    leituras.total=rzDetalhe.reduce((s,r)=>s+(r.total_leituras||0),0);
   }
 
   const impDetalhe=impRows.data||[];
@@ -477,13 +479,26 @@ function montarDashboard(ind){
 
   let html='';
 
-  html+=`<p class="sec-titulo">&#128202; Minhas leituras — ${nomeMesAtual()}</p>`;
-  html+=`<div class="tile-row">`;
-  html+=tileHtml('leituras', ind.leituras.total, 'Total', CORES.total, true, 'Leituras');
-  html+=tileHtml('leituras', ind.leituras.urbano, 'Urbano', CORES.urbano, false);
-  html+=tileHtml('leituras', ind.leituras.rural, 'Rural', CORES.rural, false);
-  html+=tileHtml('leituras', ind.leituras.povoado, 'Povoado', CORES.povoado, false);
-  html+=`</div>`;
+  html+=`<div class="cat-card">
+    <div class="cat-topo">
+      <span class="cat-titulo">&#128202; Minhas leituras — ${nomeMesAtual()}</span>
+      <button class="btn-ver" id="btn-ver-leit" onclick="toggleLista('leit')">
+        <span class="lbl">Toque para ver</span><i class="chev">&#8250;</i>
+      </button>
+    </div>
+    <div class="tile-row">
+      ${tileHtml('leituras', ind.leituras.total, 'Total', CORES.total, true, 'Leituras')}
+      ${tileHtml('leituras', ind.leituras.urbano, 'Urbano', CORES.urbano, false)}
+      ${tileHtml('leituras', ind.leituras.rural, 'Rural', CORES.rural, false)}
+      ${tileHtml('leituras', ind.leituras.povoado, 'Povoado', CORES.povoado, false)}
+    </div>
+    <div class="tabela-wrap" id="tabela-leit" style="display:none">
+      <table>
+        <tr><th>RZ</th><th>Leituras</th></tr>
+        ${ind.leituras.detalhe.map(r=>`<tr><td>RZ ${r.rz||'—'}</td><td>${(r.total_leituras||0).toLocaleString('pt-BR')}</td></tr>`).join('')||'<tr><td colspan="2">Nenhum dado por RZ neste mês.</td></tr>'}
+      </table>
+    </div>
+  </div>`;
 
   html+=`<div class="cat-card">
     <div class="cat-topo">
