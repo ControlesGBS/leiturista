@@ -40,6 +40,10 @@ body{font-family:system-ui,sans-serif;background:var(--bg);min-height:100vh}
 .topo-perfil{display:flex;align-items:center;gap:12px}
 .btn-menu{background:rgba(255,255,255,.15);border:none;color:#fff;width:34px;height:34px;border-radius:8px;cursor:pointer;font-size:16px;flex-shrink:0}
 .topo-acoes{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.alertas-wrap{display:flex;flex-direction:column;align-items:center;gap:2px}
+.alertas-label{font-size:9px;font-weight:700;color:#ff5252;letter-spacing:.05em;visibility:hidden}
+.alertas-label.piscando{visibility:visible;animation:piscaAlerta 1s steps(1) infinite}
+@keyframes piscaAlerta{0%,49%{opacity:1}50%,100%{opacity:0}}
 .btn-alertas{position:relative;background:rgba(255,255,255,.15);border:none;color:#fff;width:34px;height:34px;border-radius:8px;cursor:pointer;font-size:15px;flex-shrink:0}
 .btn-alertas.tem-alerta{background:#c0392b;animation:pulsoAlerta 1.8s infinite}
 .alertas-badge{position:absolute;top:-4px;right:-4px;background:#c0392b;color:#fff;font-size:10px;font-weight:700;min-width:16px;height:16px;border-radius:8px;display:none;align-items:center;justify-content:center;padding:0 3px;border:1.5px solid var(--azul-topo)}
@@ -122,10 +126,13 @@ body{font-family:system-ui,sans-serif;background:var(--bg);min-height:100vh}
         </div>
       </div>
       <div class="topo-acoes">
-        <button class="btn-alertas" id="btn-alertas" onclick="abrirAlertas()" aria-label="Alertas">
-          &#128276;
-          <span class="alertas-badge" id="alertas-badge">0</span>
-        </button>
+        <div class="alertas-wrap">
+          <span class="alertas-label" id="alertas-label">ALERTA</span>
+          <button class="btn-alertas" id="btn-alertas" onclick="abrirAlertas()" aria-label="Alertas">
+            &#128276;
+            <span class="alertas-badge" id="alertas-badge">0</span>
+          </button>
+        </div>
         <button class="btn-menu" onclick="toggleMenu()" aria-label="Menu">&#9776;</button>
       </div>
     </div>
@@ -214,7 +221,7 @@ async function buscarAlertasErrosReclamacoes(){
   ]);
   const alertas=[];
   (errRows.data||[]).forEach(r=>{
-    alertas.push({chave:`erro:${r.ul||''}:${r.instalacao||''}`, icone:'&#128027;',
+    alertas.push({chave:`erro:${r.ul||''}:${r.instalacao||''}`, icone:'&#10060;',
       texto:`<b>1 erro de leitura:</b> UL ${r.ul||'—'}, Instalação ${r.instalacao||'—'}. Procure o Supervisor para mais informações do erro.`});
   });
   (reclRows.data||[]).forEach(r=>{
@@ -224,45 +231,51 @@ async function buscarAlertasErrosReclamacoes(){
   return alertas;
 }
 
-// ── Alertas: horário fora da faixa e falta de intervalo no dia anterior ──
-// Os dados são atualizados à noite, então o leiturista só vê isso no dia seguinte
-// (por isso sempre olha pro dia anterior, não pro dia atual).
+// ── Alertas: horário fora da faixa e falta de intervalo ──────────────────
+// Os dados são atualizados à noite, então o leiturista só vê o de um dia no
+// dia seguinte -- mas o alerta continua aparecendo (varre o mês inteiro até
+// ontem) até ele realmente abrir e a tela marcar como lido, mesmo que ele só
+// entre no app dias depois.
 async function buscarAlertasHorarioIntervalo(){
   const dataOntem=ontemStr();
-  const {data:linhas}=await sb.from('jornada').select('hora_inicial,hora_final,horas_json,qtd_leituras')
-    .ilike('matricula',MATRICULA).eq('data',dataOntem);
+  const {data:linhas}=await sb.from('jornada').select('data,hora_inicial,hora_final,horas_json,qtd_leituras')
+    .ilike('matricula',MATRICULA).eq('mes_ref',MES_REF).lte('data',dataOntem);
   if(!linhas||!linhas.length) return [];
 
-  let horaIni=null, horaFim=null, totalLeit=0, todasHoras=[];
+  const porDia={};
   linhas.forEach(r=>{
-    totalLeit+=r.qtd_leituras||0;
-    if(r.hora_inicial && (!horaIni||r.hora_inicial<horaIni)) horaIni=r.hora_inicial;
-    if(r.hora_final && (!horaFim||r.hora_final>horaFim)) horaFim=r.hora_final;
-    try{ todasHoras=todasHoras.concat(JSON.parse(r.horas_json||'[]')); }catch(e){}
+    if(!porDia[r.data]) porDia[r.data]={horaIni:null,horaFim:null,totalLeit:0,todasHoras:[]};
+    const d=porDia[r.data];
+    d.totalLeit+=r.qtd_leituras||0;
+    if(r.hora_inicial && (!d.horaIni||r.hora_inicial<d.horaIni)) d.horaIni=r.hora_inicial;
+    if(r.hora_final && (!d.horaFim||r.hora_final>d.horaFim)) d.horaFim=r.hora_final;
+    try{ d.todasHoras=d.todasHoras.concat(JSON.parse(r.horas_json||'[]')); }catch(e){}
   });
-  if(totalLeit<10) return []; // dia sem trabalho relevante, não gera alerta
 
   const alertas=[];
-  const dataFmt=new Date(dataOntem+'T12:00:00').toLocaleDateString('pt-BR');
+  Object.entries(porDia).forEach(([data,d])=>{
+    if(d.totalLeit<10) return; // dia sem trabalho relevante, não gera alerta
+    const dataFmt=new Date(data+'T12:00:00').toLocaleDateString('pt-BR');
 
-  if(horaIni && toMin(horaIni)<toMin('06:30')){
-    alertas.push({chave:`horario:${dataOntem}:cedo`, icone:'&#9200;',
-      texto:`No dia <b>${dataFmt}</b> você começou a digitar leitura muito cedo, às <b>${horaIni}</b>. Regularize a situação.`});
-  }
-  if(horaFim && toMin(horaFim)>toMin('18:00')){
-    alertas.push({chave:`horario:${dataOntem}:tarde`, icone:'&#9200;',
-      texto:`No dia <b>${dataFmt}</b> você digitou leitura muito tarde, às <b>${horaFim}</b>. Regularize a situação.`});
-  }
+    if(d.horaIni && toMin(d.horaIni)<toMin('06:30')){
+      alertas.push({chave:`horario:${data}:cedo`, icone:'&#9200;',
+        texto:`No dia <b>${dataFmt}</b> você começou a digitar leitura muito cedo, às <b>${d.horaIni}</b>. Regularize a situação.`});
+    }
+    if(d.horaFim && toMin(d.horaFim)>toMin('18:00')){
+      alertas.push({chave:`horario:${data}:tarde`, icone:'&#9200;',
+        texto:`No dia <b>${dataFmt}</b> você digitou leitura muito tarde, às <b>${d.horaFim}</b>. Regularize a situação.`});
+    }
 
-  todasHoras=[...new Set(todasHoras)].sort();
-  let temIntervalo=false;
-  for(let i=1;i<todasHoras.length;i++){
-    if(toMin(todasHoras[i])-toMin(todasHoras[i-1])>=30){ temIntervalo=true; break; }
-  }
-  if(!temIntervalo){
-    alertas.push({chave:`intervalo:${dataOntem}`, icone:'&#127869;',
-      texto:`Na data <b>${dataFmt}</b> você não fez pausa para alimentação de no mínimo 30 minutos. Regularize a situação.`});
-  }
+    const todasHoras=[...new Set(d.todasHoras)].sort();
+    let temIntervalo=false;
+    for(let i=1;i<todasHoras.length;i++){
+      if(toMin(todasHoras[i])-toMin(todasHoras[i-1])>=30){ temIntervalo=true; break; }
+    }
+    if(!temIntervalo){
+      alertas.push({chave:`intervalo:${data}`, icone:'&#127869;',
+        texto:`Na data <b>${dataFmt}</b> você não fez pausa para alimentação de no mínimo 30 minutos. Regularize a situação.`});
+    }
+  });
   return alertas;
 }
 
@@ -283,13 +296,16 @@ async function carregarAlertas(){
 function atualizarBadgeAlertas(qtd){
   const btn=document.getElementById('btn-alertas');
   const badge=document.getElementById('alertas-badge');
+  const label=document.getElementById('alertas-label');
   if(qtd>0){
     btn.classList.add('tem-alerta');
     badge.textContent=qtd>9?'9+':qtd;
     badge.style.display='flex';
+    label.classList.add('piscando');
   } else {
     btn.classList.remove('tem-alerta');
     badge.style.display='none';
+    label.classList.remove('piscando');
   }
 }
 
@@ -541,7 +557,7 @@ function montarDashboard(ind){
 
   html+=`<div class="cat-card">
     <div class="cat-topo">
-      <span class="cat-titulo">&#128172; Minhas reclamações</span>
+      <span class="cat-titulo">&#128172; Reclamações</span>
       <button class="btn-ver" id="btn-ver-recl" onclick="toggleLista('recl')">
         <span class="lbl">Toque para ver</span><i class="chev">&#8250;</i>
       </button>
