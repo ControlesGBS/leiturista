@@ -41,7 +41,7 @@ body{font-family:system-ui,sans-serif;background:var(--bg);min-height:100vh}
 .btn-menu{background:rgba(255,255,255,.15);border:none;color:#fff;width:34px;height:34px;border-radius:8px;cursor:pointer;font-size:16px;flex-shrink:0}
 .topo-acoes{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .alertas-wrap{position:relative;flex-shrink:0}
-.alertas-label{position:absolute;top:-11px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;color:#ff5252;letter-spacing:.05em;white-space:nowrap;visibility:hidden}
+.alertas-label{position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;color:#ff5252;letter-spacing:.05em;white-space:nowrap;visibility:hidden}
 .alertas-label.piscando{visibility:visible;animation:piscaAlerta 1s steps(1) infinite}
 @keyframes piscaAlerta{0%,49%{opacity:1}50%,100%{opacity:0}}
 .btn-alertas{position:relative;background:rgba(255,255,255,.15);border:none;color:#fff;width:34px;height:34px;border-radius:8px;cursor:pointer;font-size:15px;flex-shrink:0}
@@ -214,18 +214,24 @@ function ontemStr(){
 }
 
 // ── Alertas: erro de leitura e reclamação (mês atual) ───────────────────
+// "quando" é só pra ordenar (mais novo primeiro) -- erro usa created_at (a planilha de
+// erros sempre sobe TODOS os erros de novo, então created_at só reflete a 1ª vez que
+// aquele erro específico apareceu, já que o upsert não reenvia essa coluna e não a
+// sobrescreve num erro que já existia).
 async function buscarAlertasErrosReclamacoes(){
   const [errRows, reclRows] = await Promise.all([
-    sb.from('erros').select('ul,instalacao').ilike('matricula',MATRICULA).eq('mes_erro',MES_REF),
+    sb.from('erros').select('ul,instalacao,created_at').ilike('matricula',MATRICULA).eq('mes_erro',MES_REF),
     sb.from('reclamacoes').select('instalacao,data,motivo').ilike('matricula',MATRICULA).eq('mes_ref',MES_REF),
   ]);
   const alertas=[];
   (errRows.data||[]).forEach(r=>{
     alertas.push({chave:`erro:${r.ul||''}:${r.instalacao||''}`, icone:'&#10060;',
+      quando:r.created_at?new Date(r.created_at):new Date(0),
       texto:`<b>1 erro de leitura:</b> UL ${r.ul||'—'}, Instalação ${r.instalacao||'—'}. Procure o Supervisor para mais informações do erro.`});
   });
   (reclRows.data||[]).forEach(r=>{
     alertas.push({chave:`reclamacao:${r.instalacao||''}:${r.data||''}`, icone:'&#128172;',
+      quando:r.data?new Date(r.data+'T12:00:00'):new Date(0),
       texto:`<b>1 reclamação:</b> Instalação ${r.instalacao||'—'}, motivo: ${r.motivo||'—'}. Procure o Supervisor para mais informações dessa reclamação.`});
   });
   return alertas;
@@ -256,13 +262,14 @@ async function buscarAlertasHorarioIntervalo(){
   Object.entries(porDia).forEach(([data,d])=>{
     if(d.totalLeit<10) return; // dia sem trabalho relevante, não gera alerta
     const dataFmt=new Date(data+'T12:00:00').toLocaleDateString('pt-BR');
+    const quando=new Date(data+'T12:00:00');
 
     if(d.horaIni && toMin(d.horaIni)<toMin('06:30')){
-      alertas.push({chave:`horario:${data}:cedo`, icone:'&#9200;',
+      alertas.push({chave:`horario:${data}:cedo`, icone:'&#9200;', quando,
         texto:`No dia <b>${dataFmt}</b> você começou a digitar leitura muito cedo, às <b>${d.horaIni}</b>. Regularize a situação.`});
     }
     if(d.horaFim && toMin(d.horaFim)>toMin('18:00')){
-      alertas.push({chave:`horario:${data}:tarde`, icone:'&#9200;',
+      alertas.push({chave:`horario:${data}:tarde`, icone:'&#9200;', quando,
         texto:`No dia <b>${dataFmt}</b> você digitou leitura muito tarde, às <b>${d.horaFim}</b>. Regularize a situação.`});
     }
 
@@ -272,7 +279,7 @@ async function buscarAlertasHorarioIntervalo(){
       if(toMin(todasHoras[i])-toMin(todasHoras[i-1])>=30){ temIntervalo=true; break; }
     }
     if(!temIntervalo){
-      alertas.push({chave:`intervalo:${data}`, icone:'&#127869;',
+      alertas.push({chave:`intervalo:${data}`, icone:'&#127869;', quando,
         texto:`Na data <b>${dataFmt}</b> você não fez pausa para alimentação de no mínimo 30 minutos. Regularize a situação.`});
     }
   });
@@ -284,7 +291,7 @@ async function carregarAlertas(){
     buscarAlertasErrosReclamacoes(),
     buscarAlertasHorarioIntervalo()
   ]);
-  const todos=[...outros,...horario];
+  const todos=[...outros,...horario].sort((a,b)=>b.quando-a.quando);
 
   const {data:lidos}=await sb.from('leiturista_alertas_lidos').select('alerta_chave').ilike('matricula',MATRICULA);
   const lidosSet=new Set((lidos||[]).map(l=>l.alerta_chave));
