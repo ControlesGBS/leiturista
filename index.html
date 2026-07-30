@@ -40,8 +40,8 @@ body{font-family:system-ui,sans-serif;background:var(--bg);min-height:100vh}
 .topo-perfil{display:flex;align-items:center;gap:12px}
 .btn-menu{background:rgba(255,255,255,.15);border:none;color:#fff;width:34px;height:34px;border-radius:8px;cursor:pointer;font-size:16px;flex-shrink:0}
 .topo-acoes{display:flex;align-items:center;gap:8px;flex-shrink:0}
-.alertas-wrap{display:flex;flex-direction:column;align-items:center;gap:2px}
-.alertas-label{font-size:9px;font-weight:700;color:#ff5252;letter-spacing:.05em;visibility:hidden}
+.alertas-wrap{position:relative;flex-shrink:0}
+.alertas-label{position:absolute;top:-11px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;color:#ff5252;letter-spacing:.05em;white-space:nowrap;visibility:hidden}
 .alertas-label.piscando{visibility:visible;animation:piscaAlerta 1s steps(1) infinite}
 @keyframes piscaAlerta{0%,49%{opacity:1}50%,100%{opacity:0}}
 .btn-alertas{position:relative;background:rgba(255,255,255,.15);border:none;color:#fff;width:34px;height:34px;border-radius:8px;cursor:pointer;font-size:15px;flex-shrink:0}
@@ -539,7 +539,7 @@ function montarDashboard(ind){
 
   html+=`<div class="cat-card">
     <div class="cat-topo">
-      <span class="cat-titulo">&#128027; Meus erros de leitura</span>
+      <span class="cat-titulo">&#10060; Meus erros de leitura</span>
       <button class="btn-ver" id="btn-ver-err" onclick="toggleLista('err')">
         <span class="lbl">Toque para ver</span><i class="chev">&#8250;</i>
       </button>
