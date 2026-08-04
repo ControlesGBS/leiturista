@@ -66,6 +66,17 @@ tbody td{padding:8px 10px;border-bottom:0.5px solid #e0eee0;vertical-align:middl
   </div>
 
   <div class="section">
+    <div class="section-hdr">Importação em massa (matrícula + PIN)</div>
+    <div class="section-body">
+      <p style="font-size:12px;color:#4a7a4a;margin-bottom:12px">Cole uma linha por leiturista, no formato <b>matrícula,PIN</b> (PIN com 6 dígitos). Roda um por vez, com uma pequena pausa entre cada um pra não bater no limite do Supabase — se parar no meio (rate limit, conexão etc.), pode colar a lista de novo e mandar importar: quem já foi criado é pulado automaticamente.</p>
+      <textarea id="imp-lista" rows="8" style="width:100%;border:0.5px solid #a0c8a0;border-radius:5px;padding:8px 10px;font-size:12px;font-family:monospace;background:#f8fbf8;color:#1a2a1a" placeholder="99A,057903&#10;952,046242&#10;..."></textarea>
+      <button class="btn-criar" id="btn-importar" onclick="importarLista()">Importar todos</button>
+      <div class="msg-criar" id="msg-importar"></div>
+      <div id="log-importar" style="max-height:280px;overflow-y:auto;font-size:11.5px;font-family:monospace;margin-top:10px;white-space:pre-line;background:#f8fbf8;border:0.5px solid #c0dcc0;border-radius:6px;padding:10px"></div>
+    </div>
+  </div>
+
+  <div class="section">
     <div class="section-hdr">
       <span>Leituristas com acesso criado</span>
       <span id="count-lista" style="font-size:11px;color:#90c090"></span>
@@ -206,6 +217,75 @@ async function criarAcesso(){
   document.getElementById('l-matricula').value='';
   document.getElementById('l-pin').value='';
   carregarLista();
+}
+
+async function importarLista(){
+  const raw=document.getElementById('imp-lista').value.trim();
+  const btn=document.getElementById('btn-importar');
+  const msg=document.getElementById('msg-importar');
+  const log=document.getElementById('log-importar');
+  if(!raw){msg.className='msg-criar erro';msg.textContent='Cole a lista de matrícula,PIN primeiro.';return;}
+
+  const linhas=raw.split('\n').map(l=>l.trim()).filter(Boolean);
+  btn.disabled=true;
+  log.textContent='';
+  let ok=0,jaExistia=0,invalida=0,erro=0;
+
+  try{
+  for(let i=0;i<linhas.length;i++){
+    const partes=linhas[i].split(',').map(s=>s.trim());
+    const matricula=partes[0],pin=partes[1];
+    msg.className='msg-criar';msg.textContent=`Processando ${i+1}/${linhas.length}...`;
+
+    if(!matricula||!/^\d{6}$/.test(pin||'')){
+      log.textContent+=`⚠ ${matricula||'linha '+(i+1)}: formato inválido (esperado matrícula,PIN de 6 dígitos), pulado\n`;
+      invalida++;log.scrollTop=log.scrollHeight;continue;
+    }
+
+    const {data:matReg}=await sb.from('matriculas').select('matricula,nome_leiturista').ilike('matricula',matricula).maybeSingle();
+    if(!matReg){
+      log.textContent+=`✗ ${matricula}: matrícula não encontrada no cadastro de matrículas\n`;
+      invalida++;log.scrollTop=log.scrollHeight;continue;
+    }
+    const matriculaCanonica=matReg.matricula;
+
+    const {data:{session:sessaoGestor}}=await sb.auth.getSession();
+    const email=emailDoLeiturista(matriculaCanonica);
+    const {error}=await sb.auth.signUp({email,password:pin,options:{data:{matricula:matriculaCanonica,perfil:'leiturista'}}});
+    if(sessaoGestor){
+      await sb.auth.setSession({access_token:sessaoGestor.access_token,refresh_token:sessaoGestor.refresh_token});
+    }
+
+    if(error){
+      const jaExiste=(error.message||'').toLowerCase().includes('already registered')||(error.message||'').toLowerCase().includes('already been registered');
+      if(jaExiste){
+        log.textContent+=`• ${matriculaCanonica} (${matReg.nome_leiturista||'—'}): já tinha acesso criado, pulado\n`;
+        jaExistia++;
+      }else{
+        log.textContent+=`✗ ${matriculaCanonica}: erro — ${error.message}\n`;
+        erro++;
+      }
+      log.scrollTop=log.scrollHeight;continue;
+    }
+
+    await sb.from('leiturista_logins').upsert({
+      matricula:matriculaCanonica, nome_leiturista:matReg.nome_leiturista||null,
+      criado_em:new Date().toISOString(), criado_por:EMAIL_PERMITIDO,
+    });
+    log.textContent+=`✓ ${matriculaCanonica} (${matReg.nome_leiturista||'—'}): criado\n`;
+    ok++;log.scrollTop=log.scrollHeight;
+
+    await new Promise(r=>setTimeout(r,1500)); // pausa entre cada signUp pra não bater no rate limit do Supabase Auth
+  }
+  msg.className='msg-criar ok';
+  msg.textContent=`Concluído: ${ok} criados, ${jaExistia} já existiam, ${invalida} inválidos/matrícula não achada, ${erro} com erro.`;
+  }catch(e){
+    msg.className='msg-criar erro';
+    msg.textContent=`Parou no meio por um erro inesperado: ${e.message}. Pode colar a lista de novo e mandar importar — quem já foi criado é pulado.`;
+  }finally{
+    btn.disabled=false;
+    carregarLista();
+  }
 }
 
 // ── Configuração de níveis/metas ────────────────────────────────────
