@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acessos dos Leituristas — GBS</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f4f6f4;color:#1a2a1a;font-size:13px}
+.hdr{background:#1a4a1a;color:#fff;padding:10px 24px;display:flex;align-items:center;gap:12px}
+.hdr-title{font-size:15px;font-weight:500;color:#c8e8c8;flex:1}
+.hdr-back{background:none;border:0.5px solid #4a7a4a;color:#90c090;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;text-decoration:none}
+.content{max-width:900px;margin:0 auto;padding:24px 20px}
+.section{background:#fff;border:0.5px solid #c0dcc0;border-radius:10px;overflow:hidden}
+.section-hdr{background:#1a4a1a;color:#c0e8c0;padding:10px 16px;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:space-between}
+.toolbar{padding:10px 16px;border-bottom:0.5px solid #e0eee0;display:flex;gap:10px;align-items:center}
+.toolbar input{border:0.5px solid #a0c8a0;border-radius:5px;padding:6px 10px;font-size:13px;background:#f8fbf8;color:#1a2a1a;height:32px;flex:1;max-width:260px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:#f0f8f0;color:#1a4a1a;padding:8px 10px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.3px;font-weight:600;white-space:nowrap}
+tbody tr:nth-child(even){background:#f8fbf8}
+tbody td{padding:9px 10px;border-bottom:0.5px solid #e0eee0;vertical-align:middle}
+.status-msg{padding:20px;text-align:center;color:#4a7a4a}
+.sem-acesso{color:#a0a0a0;font-style:italic}
+.status{display:flex;align-items:center;gap:7px;font-weight:500}
+.dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.dot.online{background:#22c55e;box-shadow:0 0 0 rgba(34,197,94,.6);animation:piscar 1.6s infinite}
+.dot.offline{background:#c4c4c4}
+.status.online{color:#16a34a}
+.status.offline{color:#8a8a8a}
+@keyframes piscar{
+  0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)}
+  70%{box-shadow:0 0 0 7px rgba(34,197,94,0)}
+  100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}
+}
+.bloqueado{max-width:420px;margin:80px auto;text-align:center;color:#4a7a4a;padding:0 20px}
+</style>
+</head>
+<body>
+
+<div id="bloqueado" class="bloqueado" style="display:none"></div>
+
+<div id="app" style="display:none">
+<div class="hdr">
+  <img src="logo_gbs.png" alt="GBS" style="height:36px" onerror="this.style.display='none'">
+  <div class="hdr-title">Acessos dos Leituristas</div>
+  <a class="hdr-back" href="https://gbsservicos.com/controles">🏠 Portal</a>
+</div>
+
+<div class="content">
+  <div class="section">
+    <div class="section-hdr">
+      <span>Leituristas cadastrados</span>
+      <span id="count" style="font-size:11px;color:#90c090"></span>
+    </div>
+    <div class="toolbar">
+      <input type="text" id="busca" placeholder="Buscar por nome, matrícula ou base..." oninput="renderTabela()">
+    </div>
+    <table>
+      <thead><tr>
+        <th>Nome</th><th>Matrícula</th><th>Base</th><th>Status</th><th>Último acesso</th>
+      </tr></thead>
+      <tbody id="tbody"><tr><td colspan="5" class="status-msg">Carregando...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+<script>
+const SUPABASE_URL='https://ndwivbhqglpnfyqwjbzu.supabase.co';
+const SUPABASE_KEY='sb_publishable_IhuNziyT5VYrMKRixcPGjA_LAn5ku-7';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+const ONLINE_JANELA_MS=90*1000; // considera "online agora" se o último sinal de vida foi há menos de 90s
+let DADOS=[];
+
+async function carregar(){
+  const [{data:mats},{data:presenca}]=await Promise.all([
+    sb.from('matriculas').select('matricula,nome_leiturista,base').order('nome_leiturista'),
+    sb.from('leiturista_presenca').select('matricula,ultimo_acesso'),
+  ]);
+  const mapaPresenca=new Map((presenca||[]).map(p=>[p.matricula,p.ultimo_acesso]));
+  DADOS=(mats||[]).map(m=>({
+    nome:m.nome_leiturista||m.matricula,
+    matricula:m.matricula,
+    base:m.base||'—',
+    ultimoAcesso:mapaPresenca.get(m.matricula)||null,
+  }));
+  renderTabela();
+}
+
+function renderTabela(){
+  const termo=(document.getElementById('busca').value||'').toLowerCase();
+  const filtrados=DADOS.filter(d=>
+    !termo || d.nome.toLowerCase().includes(termo) || d.matricula.toLowerCase().includes(termo) || d.base.toLowerCase().includes(termo)
+  ).sort((a,b)=>{
+    const ta=a.ultimoAcesso?new Date(a.ultimoAcesso).getTime():0;
+    const tb=b.ultimoAcesso?new Date(b.ultimoAcesso).getTime():0;
+    return tb-ta;
+  });
+
+  const tbody=document.getElementById('tbody');
+  document.getElementById('count').textContent=`${filtrados.length} leiturista(s)`;
+  if(!filtrados.length){
+    tbody.innerHTML='<tr><td colspan="5" class="status-msg">Nenhum leiturista encontrado.</td></tr>';
+    return;
+  }
+
+  const agora=Date.now();
+  tbody.innerHTML=filtrados.map(d=>{
+    const online=d.ultimoAcesso && (agora-new Date(d.ultimoAcesso).getTime())<ONLINE_JANELA_MS;
+    const statusHtml=d.ultimoAcesso
+      ? `<span class="status ${online?'online':'offline'}"><span class="dot ${online?'online':'offline'}"></span>${online?'Online agora':'Offline'}</span>`
+      : `<span class="status offline"><span class="dot offline"></span>Nunca acessou</span>`;
+    const ultimoAcessoTxt=d.ultimoAcesso
+      ? new Date(d.ultimoAcesso).toLocaleDateString('pt-BR')+' às '+new Date(d.ultimoAcesso).toLocaleTimeString('pt-BR').slice(0,5)
+      : '<span class="sem-acesso">—</span>';
+    return `<tr>
+      <td style="font-weight:500">${d.nome}</td>
+      <td>${d.matricula}</td>
+      <td>${d.base}</td>
+      <td>${statusHtml}</td>
+      <td>${ultimoAcessoTxt}</td>
+    </tr>`;
+  }).join('');
+}
+
+(async()=>{
+  const {data:{user}}=await sb.auth.getUser();
+  if(!user){location.href='https://gbsservicos.com/controles';return;}
+
+  const {data:up}=await sb.from('usuarios_portal').select('relatorios').eq('id',user.id).maybeSingle();
+  const liberado=(up?.relatorios||[]).includes('leiturista-acessos');
+  if(!liberado){
+    document.getElementById('bloqueado').innerHTML='<p>Acesso restrito. Redirecionando...</p>';
+    document.getElementById('bloqueado').style.display='block';
+    setTimeout(()=>{location.href='https://gbsservicos.com/controles';},1500);
+    return;
+  }
+
+  document.getElementById('app').style.display='block';
+  carregar();
+  setInterval(carregar,20000); // atualiza sozinho pra refletir quem entrou/saiu
+})();
+</script>
+<script src="/controles/auto-logout.js"></script>
+</body>
+</html>

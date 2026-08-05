@@ -91,7 +91,7 @@ body{font-family:system-ui,sans-serif;background:var(--bg);min-height:100vh}
 
 .status-msg{text-align:center;color:var(--texto-suave);font-size:13px;padding:40px 0}
 
-/* ── Premiação (painel de nível antigo) ─────────────────────────────── */
+/* ── Produtividade (painel de nível antigo) ─────────────────────────────── */
 .topo-premiacao{display:flex;align-items:center;gap:10px;padding:14px 2px}
 .btn-voltar{background:none;border:1px solid var(--card-border);color:var(--texto);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:15px}
 .titulo-premiacao{font-size:15px;font-weight:500;color:var(--texto)}
@@ -137,6 +137,7 @@ body{font-family:system-ui,sans-serif;background:var(--bg);min-height:100vh}
       </div>
     </div>
     <div class="menu-drop" id="menu-drop">
+      <button onclick="abrirPremiacao()">&#127942; Produtividade</button>
       <button onclick="alternarTema()" id="btn-tema-txt">&#127769; Alternar tema</button>
       <button onclick="sair()">&#8594; Sair</button>
     </div>
@@ -161,7 +162,7 @@ body{font-family:system-ui,sans-serif;background:var(--bg);min-height:100vh}
 <div class="wrap" id="tela-premiacao" style="display:none">
   <div class="topo-premiacao">
     <button class="btn-voltar" onclick="fecharPremiacao()" aria-label="Voltar">&#8592;</button>
-    <span class="titulo-premiacao">Premiação</span>
+    <span class="titulo-premiacao">Produtividade</span>
   </div>
   <div id="conteudo-premiacao" class="status-msg">Carregando...</div>
 </div>
@@ -598,7 +599,7 @@ function nomeMesAtual(){
   return `${meses[hoje.getMonth()]} de ${hoje.getFullYear()}`;
 }
 
-// ── Premiação (painel de nível — conteúdo antigo, carregado sob demanda) ────
+// ── Produtividade (painel de nível — conteúdo antigo, carregado sob demanda) ────
 let premiacaoCarregada=false;
 function abrirPremiacao(){
   toggleMenu();
@@ -697,19 +698,17 @@ async function carregarPremiacao(){
     valores.leitura=0; valores.impedimento=0; valores.erro=0; valores.reclamacao=0;
   }
 
-  const nivelOficial=histNivel.data?.nivel||'bronze';
-  const beneficioOficial=histNivel.data?.valor??0;
-  const cor=CORES_NIVEL[nivelOficial];
+ const nivelOficial=histNivel.data?.nivel||'bronze';
+const cor=CORES_NIVEL[nivelOficial];
 
-  let html=`
-    <div class="card">
-      <div class="nivel-box" style="background:${cor}22">
-        <p style="color:${cor}">Você está no nível <span style="font-weight:500">${NOME_NIVEL[nivelOficial]}</span></p>
-        <p style="color:${cor}">Seu benefício <span style="font-weight:500">R$ ${beneficioOficial.toFixed(2).replace('.',',')}</span></p>
-      </div>
-      <p class="mes-titulo">Mês em andamento — ${nomeMesAtual()}</p>
-      <p class="mes-sub">Faça mais leituras, melhore seus indicadores para subir de nível.</p>
-  `;
+let html=`
+  <div class="card">
+    <div class="nivel-box" style="background:${cor}22">
+      <p style="color:${cor}">Você está no nível <span style="font-weight:500">${NOME_NIVEL[nivelOficial]}</span></p>
+    </div>
+    <p class="mes-titulo">Mês em andamento — ${nomeMesAtual()}</p>
+    <p class="mes-sub">Faça mais leituras, melhore seus indicadores para subir de nível.</p>
+`;
 
   const qtdBruta={impedimento:qtdImp,erro:qtdErr,reclamacao:qtdRecl};
 
@@ -762,6 +761,12 @@ async function carregarPremiacao(){
   const indicadores=await buscarIndicadoresDoMes();
   montarDashboard(indicadores);
   carregarAlertas();
+
+  // sinal de vida — grava/atualiza o último acesso e repete enquanto a página
+  // ficar aberta, pra Controle de Acesso saber quem está online agora
+  const enviarPresenca=()=>sb.from('leiturista_presenca').upsert({matricula:MATRICULA, ultimo_acesso:new Date().toISOString()}).then(()=>{});
+  enviarPresenca();
+  setInterval(enviarPresenca, 40000);
 })();
 </script>
 
