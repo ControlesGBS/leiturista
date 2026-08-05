@@ -93,11 +93,9 @@ function renderTabela(){
   const termo=(document.getElementById('busca').value||'').toLowerCase();
   const filtrados=DADOS.filter(d=>
     !termo || d.nome.toLowerCase().includes(termo) || d.matricula.toLowerCase().includes(termo) || d.base.toLowerCase().includes(termo)
-  ).sort((a,b)=>{
-    const ta=a.ultimoAcesso?new Date(a.ultimoAcesso).getTime():0;
-    const tb=b.ultimoAcesso?new Date(b.ultimoAcesso).getTime():0;
-    return tb-ta;
-  });
+  ).sort((a,b)=>
+    a.base.localeCompare(b.base,'pt-BR') || a.nome.localeCompare(b.nome,'pt-BR')
+  );
 
   const tbody=document.getElementById('tbody');
   document.getElementById('count').textContent=`${filtrados.length} leiturista(s)`;
