@@ -13,13 +13,6 @@
   --texto:#1a2a1a; --texto-suave:#5a7a5a; --texto-fraco:#8a9a8a;
   --track-bg:#e8e8e6; --azul-topo:#0f4c86;
 }
-@media (prefers-color-scheme: dark){
-  :root{
-    --bg:#14181a; --card-bg:#1d2422; --card-border:#2c3532;
-    --texto:#e8ece8; --texto-suave:#9ab0a0; --texto-fraco:#6f8478;
-    --track-bg:#2a332f;
-  }
-}
 :root[data-tema="escuro"]{
   --bg:#14181a; --card-bg:#1d2422; --card-border:#2c3532;
   --texto:#e8ece8; --texto-suave:#9ab0a0; --texto-fraco:#6f8478;
@@ -231,6 +224,10 @@ body{font-family:system-ui,sans-serif;background:var(--bg);min-height:100vh}
   <p class="pesq-erro" id="pesq-erro"></p>
 </div>
 
+<div class="wrap" id="tela-enviando-pesquisa" style="display:none">
+  <p class="status-msg" id="msg-enviando-pesquisa">Enviando resposta...</p>
+</div>
+
 <script>
 const SUPABASE_URL='https://ndwivbhqglpnfyqwjbzu.supabase.co';
 const SUPABASE_KEY='sb_publishable_IhuNziyT5VYrMKRixcPGjA_LAn5ku-7';
@@ -246,9 +243,10 @@ function alternarTema(){
   aplicarTema(atual==='escuro'?'claro':'escuro');
 }
 (function initTema(){
+  // Não segue mais o tema escuro do sistema automaticamente -- só troca se a
+  // pessoa apertar "Alternar tema" no menu (fica salvo depois disso).
   const salvo=localStorage.getItem('leiturista-tema');
-  const prefereEscuro=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;
-  aplicarTema(salvo||(prefereEscuro?'escuro':'claro'));
+  aplicarTema(salvo||'claro');
 })();
 
 async function sair(){await sb.auth.signOut();location.href='login.html';}
@@ -816,21 +814,34 @@ function selecionarPesq(campo,valor,el){
   document.getElementById('btn-enviar-pesquisa').disabled=!completo;
 }
 
+function esperar(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
 async function enviarPesquisaEvento(){
   const btn=document.getElementById('btn-enviar-pesquisa'), erro=document.getElementById('pesq-erro');
   btn.disabled=true; btn.textContent='Enviando...'; erro.style.display='none';
   const comentario=document.getElementById('pesq-comentario').value.trim();
+
+  document.getElementById('tela-pesquisa').style.display='none';
+  const telaEnviando=document.getElementById('tela-enviando-pesquisa'), msg=document.getElementById('msg-enviando-pesquisa');
+  telaEnviando.style.display='block';
+  msg.textContent='Enviando resposta...';
+
   const {error}=await sb.from('pesquisa_evento').insert({
     matricula:MATRICULA, nota_geral:PESQ_RESP.nota, relevancia:PESQ_RESP.relevancia,
     mais_eventos:PESQ_RESP.maisEventos, comentario:comentario||null
   });
   if(error){
+    telaEnviando.style.display='none';
+    document.getElementById('tela-pesquisa').style.display='block';
     erro.textContent='Não deu pra enviar, tenta de novo.'; erro.style.display='block';
     btn.disabled=false; btn.textContent='Enviar respostas';
     console.error(error);
     return;
   }
-  document.getElementById('tela-pesquisa').style.display='none';
+
+  msg.textContent='Direcionando para o painel...';
+  await esperar(900);
+  telaEnviando.style.display='none';
   await iniciarDashboard();
 }
 
