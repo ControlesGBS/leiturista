@@ -110,6 +110,19 @@ body{font-family:system-ui,sans-serif;background:var(--bg);min-height:100vh}
 .bar-medalha{position:absolute;top:50%;transform:translate(-50%,-50%)}
 .bar-num{position:absolute;top:16px;font-size:14px;color:var(--texto-suave);transform:translateX(-50%)}
 .bar-qtd{font-size:12px;color:var(--texto-fraco)}
+
+.pesq-pergunta{font-size:14px;font-weight:500;color:var(--texto);margin-bottom:10px}
+.pesq-notas{display:flex;gap:8px}
+.pesq-notas .tile{flex:1;padding:12px 4px}
+.pesq-opcoes{display:flex;flex-direction:column;gap:8px}
+.pesq-opcao{background:var(--card-bg);border:1.5px solid var(--card-border);border-radius:10px;padding:11px 14px;font-size:13.5px;color:var(--texto);cursor:pointer;text-align:left}
+.pesq-opcao.sel{border-color:var(--azul-topo);border-width:2px;font-weight:500}
+.pesq-linha2{display:flex;gap:8px}
+.pesq-linha2 .pesq-opcao{flex:1;text-align:center}
+.pesq-textarea{width:100%;border:1.5px solid var(--card-border);border-radius:10px;padding:11px 14px;font-size:13.5px;color:var(--texto);background:var(--card-bg);font-family:inherit;resize:vertical}
+.btn-primario{width:100%;background:var(--azul-topo);color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:500;cursor:pointer;margin-top:4px}
+.btn-primario:disabled{opacity:.45;cursor:not-allowed}
+.pesq-erro{color:#c0392b;font-size:12.5px;margin-top:8px;text-align:center;display:none}
 </style>
 </head>
 <body>
@@ -165,6 +178,54 @@ body{font-family:system-ui,sans-serif;background:var(--bg);min-height:100vh}
     <span class="titulo-premiacao">Produtividade</span>
   </div>
   <div id="conteudo-premiacao" class="status-msg">Carregando...</div>
+</div>
+
+<div class="wrap" id="tela-pesquisa" style="display:none">
+  <div class="topo">
+    <div class="topo-linha" style="justify-content:center">
+      <p class="nome" style="text-align:center">Pesquisa do Evento</p>
+    </div>
+  </div>
+  <div class="cat-card">
+    <p style="font-size:13px;color:var(--texto-suave)">Antes de continuar, responda rapidinho sobre o evento que tivemos — leva menos de 1 minuto!</p>
+  </div>
+
+  <div class="cat-card">
+    <p class="pesq-pergunta">1. De 1 a 5, o que você achou do evento no geral?</p>
+    <div class="pesq-notas" id="pesq-notas">
+      <div class="tile clicavel" data-valor="1" onclick="selecionarPesq('nota',1,this)"><p class="tile-num">1</p></div>
+      <div class="tile clicavel" data-valor="2" onclick="selecionarPesq('nota',2,this)"><p class="tile-num">2</p></div>
+      <div class="tile clicavel" data-valor="3" onclick="selecionarPesq('nota',3,this)"><p class="tile-num">3</p></div>
+      <div class="tile clicavel" data-valor="4" onclick="selecionarPesq('nota',4,this)"><p class="tile-num">4</p></div>
+      <div class="tile clicavel" data-valor="5" onclick="selecionarPesq('nota',5,this)"><p class="tile-num">5</p></div>
+    </div>
+  </div>
+
+  <div class="cat-card">
+    <p class="pesq-pergunta">2. O conteúdo apresentado foi relevante para você?</p>
+    <div class="pesq-opcoes" id="pesq-relevancia">
+      <div class="pesq-opcao" data-valor="1" onclick="selecionarPesq('relevancia',1,this)">Muito relevante</div>
+      <div class="pesq-opcao" data-valor="2" onclick="selecionarPesq('relevancia',2,this)">Relevante</div>
+      <div class="pesq-opcao" data-valor="3" onclick="selecionarPesq('relevancia',3,this)">Pouco relevante</div>
+      <div class="pesq-opcao" data-valor="4" onclick="selecionarPesq('relevancia',4,this)">Irrelevante</div>
+    </div>
+  </div>
+
+  <div class="cat-card">
+    <p class="pesq-pergunta">3. Você gostaria que a empresa fizesse mais eventos como esse?</p>
+    <div class="pesq-linha2" id="pesq-mais-eventos">
+      <div class="pesq-opcao" data-valor="sim" onclick="selecionarPesq('maisEventos','sim',this)">Sim</div>
+      <div class="pesq-opcao" data-valor="nao" onclick="selecionarPesq('maisEventos','nao',this)">Não</div>
+    </div>
+  </div>
+
+  <div class="cat-card">
+    <p class="pesq-pergunta">4. Escreva abaixo, sugestões, críticas e/ou elogios</p>
+    <textarea class="pesq-textarea" id="pesq-comentario" rows="4" placeholder="Opcional"></textarea>
+  </div>
+
+  <button class="btn-primario" id="btn-enviar-pesquisa" disabled onclick="enviarPesquisaEvento()">Enviar respostas</button>
+  <p class="pesq-erro" id="pesq-erro"></p>
 </div>
 
 <script>
@@ -741,6 +802,35 @@ let html=`
 }
 
 // ── Início ───────────────────────────────────────────────────────────────
+// ── Pesquisa do evento (bloqueia o painel até responder) ────────────────
+let PESQ_RESP={nota:null, relevancia:null, maisEventos:null};
+
+function selecionarPesq(campo,valor,el){
+  PESQ_RESP[campo]=valor;
+  el.parentElement.querySelectorAll('.tile,.pesq-opcao').forEach(n=>n.classList.remove('sel'));
+  el.classList.add('sel');
+  const completo=PESQ_RESP.nota&&PESQ_RESP.relevancia&&PESQ_RESP.maisEventos;
+  document.getElementById('btn-enviar-pesquisa').disabled=!completo;
+}
+
+async function enviarPesquisaEvento(){
+  const btn=document.getElementById('btn-enviar-pesquisa'), erro=document.getElementById('pesq-erro');
+  btn.disabled=true; btn.textContent='Enviando...'; erro.style.display='none';
+  const comentario=document.getElementById('pesq-comentario').value.trim();
+  const {error}=await sb.from('pesquisa_evento').insert({
+    matricula:MATRICULA, nota_geral:PESQ_RESP.nota, relevancia:PESQ_RESP.relevancia,
+    mais_eventos:PESQ_RESP.maisEventos, comentario:comentario||null
+  });
+  if(error){
+    erro.textContent='Não deu pra enviar, tenta de novo.'; erro.style.display='block';
+    btn.disabled=false; btn.textContent='Enviar respostas';
+    console.error(error);
+    return;
+  }
+  document.getElementById('tela-pesquisa').style.display='none';
+  await iniciarDashboard();
+}
+
 (async function init(){
   const {data:{user}}=await sb.auth.getUser();
   if(!user){location.href='login.html';return;}
@@ -750,6 +840,21 @@ let html=`
     document.getElementById('conteudo-dashboard').textContent='Login sem matrícula vinculada. Fale com seu gestor.';
     return;
   }
+
+  // Pesquisa do evento -- se ainda não respondeu, mostra só ela e não carrega
+  // o resto do painel enquanto não enviar.
+  const {data:jaRespondeu}=await sb.from('pesquisa_evento').select('matricula').ilike('matricula',MATRICULA).maybeSingle();
+  if(!jaRespondeu){
+    document.getElementById('tela-dashboard').style.display='none';
+    document.getElementById('tela-pesquisa').style.display='block';
+    return;
+  }
+
+  await iniciarDashboard();
+})();
+
+async function iniciarDashboard(){
+  document.getElementById('tela-dashboard').style.display='block';
 
   const hoje=new Date();
   MES_REF=`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-01`;
@@ -767,7 +872,7 @@ let html=`
   const enviarPresenca=()=>sb.from('leiturista_presenca').upsert({matricula:MATRICULA, ultimo_acesso:new Date().toISOString()}).then(()=>{});
   enviarPresenca();
   setInterval(enviarPresenca, 40000);
-})();
+}
 </script>
 
 </body>
