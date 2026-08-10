@@ -859,7 +859,7 @@ async function enviarPesquisaEvento(){
   // o resto do painel enquanto não enviar.
   // MODO TESTE: só as matrículas dessa lista veem a pesquisa por enquanto. Pra
   // lançar pra todo mundo, é só esvaziar a lista (PESQ_MATRICULAS_TESTE=[]).
-  const PESQ_MATRICULAS_TESTE=['99A'];
+  const PESQ_MATRICULAS_TESTE=[];
   const pesqLiberadaPraEssaMatricula=!PESQ_MATRICULAS_TESTE.length||PESQ_MATRICULAS_TESTE.some(m=>m.toLowerCase()===MATRICULA.toLowerCase());
   if(pesqLiberadaPraEssaMatricula){
     const {data:jaRespondeu}=await sb.from('pesquisa_evento').select('matricula').ilike('matricula',MATRICULA).maybeSingle();
