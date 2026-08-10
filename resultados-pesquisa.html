@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resultados — Pesquisa do Evento</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+:root{
+  --bg:#f4f4f2; --card-bg:#fff; --card-border:#e0e0e0;
+  --texto:#1a2a1a; --texto-suave:#5a7a5a; --texto-fraco:#8a9a8a;
+  --azul-topo:#0f4c86;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:var(--bg);min-height:100vh}
+.wrap{max-width:760px;margin:0 auto;padding:0 16px 30px}
+.topo{background:var(--azul-topo);border-radius:0 0 16px 16px;padding:20px 20px 22px;margin-bottom:16px;text-align:center}
+.topo h1{color:#fff;font-size:19px;font-weight:600}
+.topo p{color:rgba(255,255,255,.78);font-size:13px;margin-top:4px}
+
+.gate{max-width:340px;margin:80px auto 0;background:var(--card-bg);border:1px solid var(--card-border);border-radius:14px;padding:28px 24px;text-align:center}
+.gate h2{font-size:16px;color:var(--texto);margin-bottom:6px}
+.gate p{font-size:12.5px;color:var(--texto-suave);margin-bottom:16px}
+.gate input{width:100%;border:1.5px solid var(--card-border);border-radius:8px;padding:11px 12px;font-size:14px;margin-bottom:10px;text-align:center}
+.gate button{width:100%;background:var(--azul-topo);color:#fff;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:500;cursor:pointer}
+.gate .erro{color:#c0392b;font-size:12px;margin-top:8px;display:none}
+
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.kpi{background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;padding:14px 10px;text-align:center}
+.kpi-label{font-size:10.5px;color:var(--texto-suave);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px}
+.kpi-valor{font-size:24px;font-weight:600;color:var(--azul-topo)}
+
+.card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;padding:16px;margin-bottom:14px}
+.card h3{font-size:13.5px;color:var(--texto);margin-bottom:12px}
+.card canvas{max-height:220px}
+
+.comentario{border-top:0.5px solid var(--card-border);padding:12px 0}
+.comentario:first-child{border-top:none}
+.comentario-nome{font-size:12.5px;font-weight:600;color:var(--texto)}
+.comentario-texto{font-size:13px;color:var(--texto);margin-top:3px;line-height:1.5}
+.sem-comentario{font-size:13px;color:var(--texto-fraco);text-align:center;padding:10px 0}
+
+#conteudo{display:none}
+.carregando{text-align:center;color:var(--texto-suave);padding:40px 0}
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <h2>Resultados da Pesquisa</h2>
+  <p>Digite a palavra de acesso pra ver</p>
+  <input type="password" id="senha" placeholder="Palavra de acesso" onkeydown="if(event.key==='Enter')entrar()">
+  <button onclick="entrar()">Entrar</button>
+  <p class="erro" id="erro-senha">Palavra de acesso incorreta.</p>
+</div>
+
+<div id="conteudo">
+  <div class="topo">
+    <h1>Resultados da Pesquisa</h1>
+    <p>Road Show de Segurança e Encontro Leituristas</p>
+  </div>
+
+  <div class="wrap">
+    <div class="carregando" id="carregando">Carregando respostas...</div>
+
+    <div id="miolo" style="display:none">
+      <div class="kpis">
+        <div class="kpi"><div class="kpi-label">Respostas</div><div class="kpi-valor" id="kpi-total">—</div></div>
+        <div class="kpi"><div class="kpi-label">Nota média</div><div class="kpi-valor" id="kpi-media">—</div></div>
+        <div class="kpi"><div class="kpi-label">Querem mais eventos</div><div class="kpi-valor" id="kpi-sim">—</div></div>
+      </div>
+
+      <div class="card">
+        <h3>Pergunta 1 — Nota geral do evento (1 a 5)</h3>
+        <canvas id="chartNota"></canvas>
+      </div>
+
+      <div class="card">
+        <h3>Pergunta 2 — O conteúdo foi relevante?</h3>
+        <canvas id="chartRelevancia"></canvas>
+      </div>
+
+      <div class="card">
+        <h3>Pergunta 3 — Gostariam de mais eventos assim?</h3>
+        <canvas id="chartMaisEventos"></canvas>
+      </div>
+
+      <div class="card">
+        <h3>Pergunta 4 — Sugestões, críticas e elogios</h3>
+        <div id="lista-comentarios"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Troque essa palavra quando quiser -- é só um filtro simples, não é uma conta de
+// verdade (a tabela em si já não tem dado sensível, só resultado agregado de pesquisa).
+const SENHA_ACESSO = 'evento2026';
+
+const SUPABASE_URL='https://ndwivbhqglpnfyqwjbzu.supabase.co';
+const SUPABASE_KEY='sb_publishable_IhuNziyT5VYrMKRixcPGjA_LAn5ku-7';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+Chart.register(ChartDataLabels);
+
+function entrar(){
+  const val=document.getElementById('senha').value;
+  if(val!==SENHA_ACESSO){
+    document.getElementById('erro-senha').style.display='block';
+    return;
+  }
+  document.getElementById('gate').style.display='none';
+  document.getElementById('conteudo').style.display='block';
+  carregarResultados();
+}
+
+const LABEL_RELEVANCIA={1:'Muito relevante',2:'Relevante',3:'Pouco relevante',4:'Irrelevante'};
+
+async function carregarResultados(){
+  const {data:respostas}=await sb.from('pesquisa_evento').select('matricula,nota_geral,relevancia,mais_eventos,comentario,respondido_em');
+  const linhas=respostas||[];
+
+  const matriculas=[...new Set(linhas.map(r=>r.matricula).filter(Boolean))];
+  let nomeMap={};
+  if(matriculas.length){
+    const {data:mats}=await sb.from('matriculas').select('matricula,nome_leiturista').in('matricula',matriculas);
+    (mats||[]).forEach(m=>{ nomeMap[m.matricula]=m.nome_leiturista||m.matricula; });
+  }
+
+  document.getElementById('carregando').style.display='none';
+  document.getElementById('miolo').style.display='block';
+
+  const total=linhas.length;
+  const mediaNota=total?(linhas.reduce((s,r)=>s+(r.nota_geral||0),0)/total):0;
+  const totalSim=linhas.filter(r=>r.mais_eventos==='sim').length;
+
+  document.getElementById('kpi-total').textContent=total;
+  document.getElementById('kpi-media').textContent=total?mediaNota.toFixed(1):'—';
+  document.getElementById('kpi-sim').textContent=total?`${Math.round(totalSim/total*100)}%`:'—';
+
+  const notaCounts=[1,2,3,4,5].map(n=>linhas.filter(r=>r.nota_geral===n).length);
+  new Chart(document.getElementById('chartNota'),{
+    type:'bar',
+    data:{labels:['1','2','3','4','5'],datasets:[{data:notaCounts,backgroundColor:'#0f4c86'}]},
+    options:{plugins:{legend:{display:false},datalabels:{anchor:'end',align:'top',font:{weight:'600'}}},
+      scales:{y:{beginAtZero:true,ticks:{precision:0}}}}
+  });
+
+  const relevCounts=[1,2,3,4].map(n=>linhas.filter(r=>r.relevancia===n).length);
+  new Chart(document.getElementById('chartRelevancia'),{
+    type:'bar',
+    data:{labels:Object.values(LABEL_RELEVANCIA),datasets:[{data:relevCounts,backgroundColor:'#0f4c86'}]},
+    options:{indexAxis:'y',plugins:{legend:{display:false},datalabels:{anchor:'end',align:'right',font:{weight:'600'}}},
+      scales:{x:{beginAtZero:true,ticks:{precision:0}}}}
+  });
+
+  const simCount=linhas.filter(r=>r.mais_eventos==='sim').length;
+  const naoCount=linhas.filter(r=>r.mais_eventos==='nao').length;
+  new Chart(document.getElementById('chartMaisEventos'),{
+    type:'pie',
+    data:{labels:['Sim','Não'],datasets:[{data:[simCount,naoCount],backgroundColor:['#16a34a','#c0392b']}]},
+    options:{plugins:{legend:{position:'bottom'},datalabels:{color:'#fff',font:{weight:'600'},formatter:v=>v}}}
+  });
+
+  const comComentario=linhas.filter(r=>r.comentario&&r.comentario.trim());
+  const listaEl=document.getElementById('lista-comentarios');
+  if(!comComentario.length){
+    listaEl.innerHTML='<p class="sem-comentario">Ninguém deixou comentário ainda.</p>';
+  } else {
+    listaEl.innerHTML=comComentario.map(r=>`
+      <div class="comentario">
+        <div class="comentario-nome">${nomeMap[r.matricula]||r.matricula}</div>
+        <div class="comentario-texto">${r.comentario}</div>
+      </div>
+    `).join('');
+  }
+}
+</script>
+</body>
+</html>
