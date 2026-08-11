@@ -125,8 +125,8 @@ async function carregarResultados(){
   const matriculas=[...new Set(linhas.map(r=>r.matricula).filter(Boolean))];
   let nomeMap={};
   if(matriculas.length){
-    const {data:mats}=await sb.from('matriculas').select('matricula,nome_leiturista').in('matricula',matriculas);
-    (mats||[]).forEach(m=>{ nomeMap[m.matricula]=m.nome_leiturista||m.matricula; });
+    const {data:mats}=await sb.from('matriculas').select('matricula,nome_leiturista,base').in('matricula',matriculas);
+    (mats||[]).forEach(m=>{ nomeMap[m.matricula]={nome:m.nome_leiturista||m.matricula, base:m.base||''}; });
   }
 
   document.getElementById('carregando').style.display='none';
@@ -169,12 +169,16 @@ async function carregarResultados(){
   if(!comComentario.length){
     listaEl.innerHTML='<p class="sem-comentario">Ninguém deixou comentário ainda.</p>';
   } else {
-    listaEl.innerHTML=comComentario.map(r=>`
+    listaEl.innerHTML=comComentario.map(r=>{
+      const info=nomeMap[r.matricula]||{nome:r.matricula,base:''};
+      const rotulo=info.base?`${info.nome} · ${info.base}`:info.nome;
+      return `
       <div class="comentario">
-        <div class="comentario-nome">${nomeMap[r.matricula]||r.matricula}</div>
+        <div class="comentario-nome">${rotulo}</div>
         <div class="comentario-texto">${r.comentario}</div>
       </div>
-    `).join('');
+    `;
+    }).join('');
   }
 }
 </script>
